@@ -77,6 +77,12 @@ _KEY_MAP = {
     "ctrl+space": "\x00",
 }
 
+# Keys reserved for switching between panes / quitting the app. These are
+# *not* forwarded to the child process, so they bubble up to the App's
+# BINDINGS instead. Kept to an uncommon, small set so we don't clobber
+# shell/editor keybindings (e.g. Ctrl+R for PSReadLine reverse search).
+RESERVED_APP_KEYS = frozenset({"ctrl+1", "ctrl+2", "ctrl+3", "ctrl+4", "ctrl+q"})
+
 
 class Terminal(Widget, can_focus=True):
     """A live, interactive terminal pane backed by a Windows ConPTY process."""
@@ -193,6 +199,10 @@ class Terminal(Widget, can_focus=True):
 
     # -- input -------------------------------------------------------------
     async def on_key(self, event: events.Key) -> None:
+        if event.key in RESERVED_APP_KEYS:
+            # Let this bubble up to the App so global bindings (tab
+            # switching, quit, etc.) work even while a terminal has focus.
+            return
         if self._proc is None:
             return
         event.stop()

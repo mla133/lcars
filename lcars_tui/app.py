@@ -41,13 +41,12 @@ def _pwsh(label: str, accent: str) -> list[str]:
     ]
 
 
-# Default stations. Edit / extend freely. Order matters: the grid fills
-# left-to-right, top-to-bottom, and the first pane spans the full height
-# (see #pane-copilot in lcars.tcss).
+# Default stations. Edit / extend freely.
 DEFAULT_PANES = [
     dict(id="pane-copilot", title="GITHUB COPILOT", command="powershell.exe -NoLogo -Command copilot", accent="#9999ff"),
     dict(id="pane-pwsh", title="POWERSHELL", command=_pwsh("PWSH", "DarkYellow"), accent="#ff9c00"),
 ]
+DEFAULT_TAB = DEFAULT_PANES[0]["id"]
 
 # The auxiliary station: hidden by default, toggled on/off via the AUX button.
 AUX_PANE = dict(id="pane-shell", title="AUX TERMINAL", command=_pwsh("AUX", "Cyan"), accent="#99ccff")
@@ -81,18 +80,25 @@ class LcarsApp(App):
     CSS_PATH = CSS_PATH
     TITLE = "LCARS TERMINAL INTERFACE"
     BINDINGS = [
+        ("ctrl+1", "show_tab('pane-copilot')", "Copilot"),
+        ("ctrl+2", "show_tab('pane-pwsh')", "PowerShell"),
+        ("ctrl+3", "toggle_aux", "Aux"),
         ("ctrl+n", "new_pane", "New pane"),
         ("ctrl+k", "kill_pane", "Kill focused pane"),
         ("ctrl+r", "restart_pane", "Restart focused pane"),
         ("ctrl+q", "quit", "Quit"),
     ]
 
+    def __init__(self, *args, **kwargs) -> None:
+        super().__init__(*args, **kwargs)
+        self._active_tab: str | None = None
+
     def compose(self) -> ComposeResult:
         with Horizontal(id="root"):
             with Vertical(id="sidebar"):
                 yield Static("\u25c9", id="elbow-top")
-                yield Button("PWSH", id="focus-pane-pwsh", classes="btn-orange")
-                yield Button("COPLT", id="focus-pane-copilot", classes="btn-lilac")
+                yield Button("COPILOT", id="tab-pane-copilot", classes="btn-lilac")
+                yield Button("PWSH", id="tab-pane-pwsh", classes="btn-orange")
                 yield Button("AUX", id="toggle-aux", classes="btn-blue")
                 yield Static(id="sidebar-spacer")
                 yield Button("NEW", id="new-pane", classes="btn-yellow")
@@ -111,13 +117,37 @@ class LcarsApp(App):
     def on_mount(self) -> None:
         self.set_interval(1, self._tick)
         self._tick()
-        first_pane = self.query(TerminalPane).first()
-        if first_pane is not None:
-            first_pane.terminal.focus()
+        self._activate(DEFAULT_TAB)
 
     def _tick(self) -> None:
         stamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         self.query_one("#bottombar", Static).update(f"STARDATE {stamp}")
+
+    # -- tab switching -----------------------------------------------------
+    def _activate(self, pane_id: str) -> None:
+        """Show the pane with the given id and hide every other pane."""
+        panes = self.query_one("#panes", Container)
+        try:
+            active = panes.query_one(f"#{pane_id}", TerminalPane)
+        except NoMatches:
+            return
+        for pane in panes.query(TerminalPane):
+            pane.display = pane.id == pane_id
+        self._active_tab = pane_id
+        active.terminal.focus()
+        self._update_tab_buttons()
+
+    def _update_tab_buttons(self) -> None:
+        for button in self.query("#sidebar Button"):
+            button_id = button.id or ""
+            is_tab_button = button_id.startswith("tab-") or button_id == "toggle-aux"
+            if not is_tab_button:
+                continue
+            target = button_id.removeprefix("tab-") if button_id.startswith("tab-") else AUX_PANE["id"]
+            button.set_class(target == self._active_tab, "active")
+
+    def action_show_tab(self, pane_id: str) -> None:
+        self._activate(pane_id)
 
     # -- sidebar actions -------------------------------------------------
     async def on_button_pressed(self, event: Button.Pressed) -> None:
@@ -130,13 +160,8 @@ class LcarsApp(App):
             self.action_kill_pane()
         elif button_id == "toggle-aux":
             await self.action_toggle_aux()
-        elif button_id.startswith("focus-"):
-            pane_id = button_id.removeprefix("focus-")
-            try:
-                pane = self.query_one(f"#{pane_id}", TerminalPane)
-            except NoMatches:
-                return
-            pane.terminal.focus()
+        elif button_id.startswith("tab-"):
+            self._activate(button_id.removeprefix("tab-"))
 
     async def action_toggle_aux(self) -> None:
         panes = self.query_one("#panes", Container)
@@ -147,10 +172,14 @@ class LcarsApp(App):
                 AUX_PANE["title"], AUX_PANE["command"], accent=AUX_PANE["accent"], id=AUX_PANE["id"]
             )
             await panes.mount(pane)
-            pane.terminal.focus()
+            self._activate(AUX_PANE["id"])
         else:
-            pane.terminal.stop()
-            await pane.remove()
+            if self._active_tab == AUX_PANE["id"]:
+                pane.terminal.stop()
+                await pane.remove()
+                self._activate(DEFAULT_TAB)
+            else:
+                self._activate(AUX_PANE["id"])
 
     def action_new_pane(self) -> None:
         def handle_result(command: str | None) -> None:
@@ -161,7 +190,7 @@ class LcarsApp(App):
             pane_id = f"pane-extra-{index}"
             pane = TerminalPane(f"STATION {index}", command, accent="#cc6666", id=pane_id)
             panes.mount(pane)
-            pane.terminal.focus()
+            self._activate(pane_id)
 
         self.push_screen(NewPaneScreen(), handle_result)
 

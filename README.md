@@ -1,13 +1,15 @@
 # LCARS Terminal Interface
 
 A one-screen, LCARS (Star Trek console) styled TUI that hosts several real,
-interactive terminal programs side by side: PowerShell, the GitHub Copilot
-CLI, and any other console command you like.
+interactive terminal programs as full-size tabs: PowerShell, the GitHub
+Copilot CLI, and any other console command you like.
 
 Built with [Textual](https://github.com/Textualize/textual). Each pane is a
 genuine Windows console session created via ConPTY (`pywinpty`) and rendered
 with a terminal-emulator state machine (`pyte`), so colors, cursor movement,
-and fully interactive programs work as expected.
+and fully interactive programs work as expected. Only one pane is shown at a
+time (like browser tabs) so each station gets the full screen — the others
+keep running in the background and are instant to switch back to.
 
 ## Setup
 
@@ -24,17 +26,19 @@ python -m venv .venv
 
 ## Usage
 
-- Sidebar buttons `PWSH` / `COPLT` jump focus to a station; `AUX` toggles a
-  third, hidden-by-default terminal pane on and off.
-- `Ctrl+N` — open a dialog to launch a new pane running any command.
+- Sidebar buttons `COPILOT` / `PWSH` switch the visible tab; `AUX` opens a
+  third, hidden-by-default terminal tab, or closes it again if it's already
+  showing.
+- `Ctrl+1` / `Ctrl+2` / `Ctrl+3` — switch tabs from the keyboard (Copilot /
+  PowerShell / Aux), even while a terminal has focus. These keys are
+  reserved and never forwarded to the shell running inside a pane.
+- `Ctrl+N` — open a dialog to launch a new pane running any command (it
+  becomes its own tab).
 - `Ctrl+K` — kill the focused pane's process.
 - `Ctrl+R` — restart the focused pane's process.
 - `Ctrl+Q` — quit (also available via the `QUIT` sidebar button).
 - Click into any pane and type normally — keystrokes are forwarded to the
   real console process running inside it.
-- The Copilot station spans the full height and takes up roughly 2/3 of the
-  main area's width; PowerShell and (if toggled on) the Aux terminal share
-  the remaining column.
 
 ## LCARS prompt
 
