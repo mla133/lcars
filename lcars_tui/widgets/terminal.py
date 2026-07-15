@@ -11,6 +11,7 @@ and the resulting screen buffer is rendered as Rich text each frame.
 from __future__ import annotations
 
 import threading
+import time
 from queue import Empty, Queue
 from typing import Optional
 
@@ -135,6 +136,7 @@ class Terminal(Widget, can_focus=True):
         self._missing_deps = pyte is None or PtyProcess is None
         self._line_cache: list[Text] = []
         self._prev_cursor_y = -1
+        self._last_output_at = 0.0
 
     # -- lifecycle -----------------------------------------------------
     def on_mount(self) -> None:
@@ -209,7 +211,17 @@ class Terminal(Widget, can_focus=True):
         except Empty:
             pass
         if updated:
+            self._last_output_at = time.monotonic()
             self.refresh()
+
+    def is_active(self, window: float = 1.5) -> bool:
+        """True if the child process has produced output within ``window``
+        seconds. Used as a cheap "is this pane doing something" proxy so a
+        background pane (e.g. Copilot) can be flagged as busy while another
+        tab is in view -- most CLI programs sit silent while waiting on
+        input and only stream output while actively working.
+        """
+        return self._proc is not None and (time.monotonic() - self._last_output_at) < window
 
     # -- input -------------------------------------------------------------
     async def on_key(self, event: events.Key) -> None:

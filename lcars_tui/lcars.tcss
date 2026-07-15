@@ -6,6 +6,7 @@ $lcars-red: #cc6666;
 $lcars-lilac: #9999ff;
 $lcars-blue: #99ccff;
 $lcars-yellow: #ffcc00;
+$lcars-green: #66cc66;
 
 Screen {
     background: $lcars-black;
@@ -39,32 +40,68 @@ Screen {
     background: $lcars-orange;
     color: $lcars-black;
     border: round $lcars-orange;
+    content-align: center middle;
+    text-style: bold;
+    text-align: center;
 }
 
-#sidebar Button {
+/* Lit up while a backgrounded pane (e.g. Copilot) is streaming output
+   while some other tab is in view -- see LcarsApp._update_activity_indicator.
+   The box's own text is swapped to name the busy pane(s) instead of relying
+   on a hover-only tooltip. */
+#elbow-bottom.busy {
+    background: $lcars-red;
+    border: round $lcars-red;
+}
+
+/* Button "shell": the rounded border ring lives on this wrapper, whose own
+   background always matches the sidebar (black). That keeps the top/bottom
+   border rows a thin colored curve on black instead of a solid colored bar,
+   so the button reads as a true rounded pill instead of a chunky rectangle.
+   The actual fill color lives only on the single interior row (the Button
+   inside), which is what "cuts" cleanly against the rounded ring. */
+#sidebar .btn-shell {
     width: 1fr;
     min-width: 3;
     height: 3;
     margin: 0 0 1 0;
     background: $lcars-black;
-    border: round;
+    padding: 0;
+}
+
+#sidebar .btn-shell Button {
+    width: 1fr;
+    height: 1fr;
+    min-width: 3;
+    margin: 0;
+    border: none;
     text-style: bold;
     content-align: center middle;
     padding: 0 1;
 }
 
-/* Outline-style pill by default (fill matches the sidebar so only the
-   rounded border ring is visible); active tab fills solid so it reads as
-   the "lit" LCARS button. */
-.btn-orange { color: $lcars-orange; border: round $lcars-orange; }
-.btn-lilac  { color: $lcars-lilac;  border: round $lcars-lilac; }
-.btn-blue   { color: $lcars-blue;   border: round $lcars-blue; }
-.btn-red    { color: $lcars-red;    border: round $lcars-red; }
-.btn-yellow { color: $lcars-yellow; border: round $lcars-yellow; }
+#sidebar .btn-shell.btn-lilac  { border: round $lcars-lilac;  }
+#sidebar .btn-shell.btn-orange { border: round $lcars-orange; }
+#sidebar .btn-shell.btn-blue   { border: round $lcars-blue;   }
+#sidebar .btn-shell.btn-green  { border: round $lcars-green;  }
+#sidebar .btn-shell.btn-red    { border: round $lcars-red;    }
+#sidebar .btn-shell.btn-yellow { border: round $lcars-yellow; }
 
-.btn-orange.active { background: $lcars-orange; color: $lcars-black; }
-.btn-lilac.active  { background: $lcars-lilac;  color: $lcars-black; }
-.btn-blue.active   { background: $lcars-blue;   color: $lcars-black; }
+/* Normal (unselected/action) state: filled with the button's own color and
+   black text -- the fill sits entirely inside the rounded ring above. */
+#sidebar .btn-shell.btn-lilac  Button { background: $lcars-lilac;  color: $lcars-black; }
+#sidebar .btn-shell.btn-orange Button { background: $lcars-orange; color: $lcars-black; }
+#sidebar .btn-shell.btn-blue   Button { background: $lcars-blue;   color: $lcars-black; }
+#sidebar .btn-shell.btn-green  Button { background: $lcars-green;  color: $lcars-black; }
+#sidebar .btn-shell.btn-red    Button { background: $lcars-red;    color: $lcars-black; }
+#sidebar .btn-shell.btn-yellow Button { background: $lcars-yellow; color: $lcars-black; }
+
+/* Active/selected state (tab buttons only): the interior goes black and the
+   text takes on the accent color, so the pill reads as hollow/"lit" against
+   its still-colored ring. */
+#sidebar .btn-shell.btn-lilac  Button.active { background: $lcars-black; color: $lcars-lilac; }
+#sidebar .btn-shell.btn-orange Button.active { background: $lcars-black; color: $lcars-orange; }
+#sidebar .btn-shell.btn-blue   Button.active { background: $lcars-black; color: $lcars-blue; }
 
 #sidebar-spacer {
     height: 1fr;

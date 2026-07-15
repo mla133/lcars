@@ -97,13 +97,19 @@ class LcarsApp(App):
         with Horizontal(id="root"):
             with Vertical(id="sidebar"):
                 yield Static("\u25c9", id="elbow-top")
-                yield Button("COPILOT", id="tab-pane-copilot", classes="btn-lilac")
-                yield Button("PWSH", id="tab-pane-pwsh", classes="btn-orange")
-                yield Button("AUX", id="toggle-aux", classes="btn-blue")
+                with Container(classes="btn-shell btn-lilac"):
+                    yield Button("COPILOT", id="tab-pane-copilot")
+                with Container(classes="btn-shell btn-orange"):
+                    yield Button("PWSH", id="tab-pane-pwsh")
+                with Container(classes="btn-shell btn-blue"):
+                    yield Button("AUX", id="toggle-aux")
                 yield Static(id="sidebar-spacer")
-                yield Button("NEW", id="new-pane", classes="btn-yellow")
-                yield Button("KILL", id="kill-pane", classes="btn-red")
-                yield Button("QUIT", id="quit", classes="btn-orange")
+                with Container(classes="btn-shell btn-green"):
+                    yield Button("NEW", id="new-pane")
+                with Container(classes="btn-shell btn-orange"):
+                    yield Button("KILL", id="kill-pane")
+                with Container(classes="btn-shell btn-red"):
+                    yield Button("QUIT", id="quit")
                 yield Static("\u25c9", id="elbow-bottom")
             with Vertical(id="main"):
                 yield Static(self.TITLE, id="topbar")
@@ -122,6 +128,29 @@ class LcarsApp(App):
     def _tick(self) -> None:
         stamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         self.query_one("#bottombar", Static).update(f"STARDATE {stamp}")
+        self._update_activity_indicator()
+
+    def _update_activity_indicator(self) -> None:
+        busy = self._busy_background_panes()
+        indicator = self.query_one("#elbow-bottom", Static)
+        indicator.set_class(bool(busy), "busy")
+        if busy:
+            indicator.update(", ".join(busy))
+            indicator.tooltip = f"WORKING: {', '.join(busy)}"
+        else:
+            indicator.update("\u25c9")
+            indicator.tooltip = None
+
+    def _busy_background_panes(self) -> list[str]:
+        """Titles of panes (other than the one currently shown) whose
+        process has produced output recently -- i.e. still working."""
+        busy = []
+        for pane in self.query_one("#panes", Container).query(TerminalPane):
+            if pane.id == self._active_tab:
+                continue
+            if pane.terminal.is_active():
+                busy.append(pane.title_text)
+        return busy
 
     # -- tab switching -----------------------------------------------------
     def _activate(self, pane_id: str) -> None:
