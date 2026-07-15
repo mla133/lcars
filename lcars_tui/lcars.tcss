@@ -1,0 +1,121 @@
+/* LCARS color palette */
+$lcars-black: #000000;
+$lcars-orange: #ff9c00;
+$lcars-peach: #ffcc99;
+$lcars-red: #cc6666;
+$lcars-lilac: #9999ff;
+$lcars-blue: #99ccff;
+$lcars-yellow: #ffcc00;
+
+Screen {
+    background: $lcars-black;
+    color: $lcars-peach;
+}
+
+/* ---- overall frame ---------------------------------------------- */
+#root {
+    height: 1fr;
+}
+
+/* ---- sidebar (the classic LCARS vertical "elbow" column) -------- */
+#sidebar {
+    width: 16;
+    height: 1fr;
+    background: $lcars-black;
+    padding: 0 1 0 0;
+}
+
+#elbow-top {
+    height: 3;
+    width: 1fr;
+    background: $lcars-orange;
+    color: $lcars-black;
+}
+
+#elbow-bottom {
+    height: 3;
+    width: 1fr;
+    background: $lcars-orange;
+    color: $lcars-black;
+}
+
+#sidebar Button {
+    width: 1fr;
+    height: 3;
+    margin: 0 0 1 0;
+    border: none;
+    text-style: bold;
+    content-align: right middle;
+    padding: 0 2 0 0;
+}
+
+.btn-orange { background: $lcars-orange; color: $lcars-black; }
+.btn-lilac  { background: $lcars-lilac;  color: $lcars-black; }
+.btn-blue   { background: $lcars-blue;   color: $lcars-black; }
+.btn-red    { background: $lcars-red;    color: $lcars-black; }
+.btn-yellow { background: $lcars-yellow; color: $lcars-black; }
+
+#sidebar-spacer {
+    height: 1fr;
+    background: $lcars-black;
+}
+
+/* ---- main column -------------------------------------------------- */
+#main {
+    height: 1fr;
+    width: 1fr;
+}
+
+#topbar {
+    height: 1;
+    background: $lcars-red;
+    color: $lcars-black;
+    text-style: bold;
+    content-align: left middle;
+    padding: 0 2;
+}
+
+#bottombar {
+    height: 1;
+    background: $lcars-lilac;
+    color: $lcars-black;
+    text-style: bold;
+    content-align: right middle;
+    padding: 0 2;
+}
+
+/* ---- pane grid ------------------------------------------------- */
+#panes {
+    layout: grid;
+    grid-size: 2 2;
+    grid-gutter: 1;
+    height: 1fr;
+    width: 1fr;
+    background: $lcars-black;
+}
+
+#pane-pwsh {
+    row-span: 2;
+}
+
+/* ---- new-pane modal ------------------------------------------- */
+NewPaneScreen {
+    align: center middle;
+}
+
+#new-pane-dialog {
+    width: 60;
+    height: auto;
+    background: $lcars-black;
+    border: heavy $lcars-orange;
+    padding: 1 2;
+}
+
+#new-pane-dialog Input {
+    margin: 1 0;
+}
+
+#new-pane-dialog Static {
+    color: $lcars-orange;
+    text-style: bold;
+}

@@ -1,0 +1,4 @@
+textual>=8.0
+rich>=14.0
+pywinpty>=2.0
+pyte>=0.8
