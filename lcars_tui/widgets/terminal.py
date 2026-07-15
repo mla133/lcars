@@ -95,6 +95,14 @@ class Terminal(Widget, can_focus=True):
         height: 1fr;
         background: #000000;
         color: #e6e6e6;
+        /* Same thickness whether focused or not (just an invisible,
+           background-matched color when unfocused) so the content box
+           size - and thus the pty's row/col count - never changes when
+           focus toggles. Textual doesn't emit a Resize event for a
+           focus-only border change, so if the thickness differed the
+           pty would keep the stale (larger) size and the bottom rows
+           (e.g. a full-screen program's status line) would be clipped. */
+        border: heavy #000000;
     }
     Terminal:focus {
         border: heavy #ff9c00;
@@ -224,8 +232,14 @@ class Terminal(Widget, can_focus=True):
     def on_resize(self, event: events.Resize) -> None:
         if self._missing_deps:
             return
-        cols = max(event.size.width, 2)
-        rows = max(event.size.height, 2)
+        # Deliberately use self.size (the widget's actual content box, after
+        # border/padding) rather than event.size: event.size can report the
+        # pre-border/outer size, which is larger than what's really visible.
+        # Sizing the pty/pyte screen to that inflated value left the bottom
+        # rows (e.g. a full-screen program's status line) permanently
+        # clipped since no further resize is emitted to correct it.
+        cols = max(self.size.width, 2)
+        rows = max(self.size.height, 2)
         if self._screen is not None:
             self._screen.resize(rows, cols)
             self._line_cache = [Text()] * rows
