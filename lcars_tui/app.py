@@ -9,6 +9,7 @@ from pathlib import Path
 
 from textual.app import App, ComposeResult
 from textual.containers import Container, Horizontal, Vertical
+from textual.css.query import NoMatches
 from textual.screen import ModalScreen
 from textual.widgets import Button, Input, Static
 
@@ -16,15 +17,40 @@ from .widgets.pane import TerminalPane
 from .widgets.terminal import Terminal
 
 CSS_PATH = Path(__file__).parent / "lcars.tcss"
+PROMPT_SCRIPT = Path(__file__).parent / "assets" / "lcars_prompt.ps1"
+
+
+def _pwsh(label: str, accent: str) -> list[str]:
+    """Build an argv list that launches PowerShell with the LCARS prompt.
+
+    Passed as a list (rather than a single string) so the script path is
+    never re-split/re-quoted by the pty layer's shell-style parsing --
+    important since paths may contain spaces.
+    """
+    return [
+        "powershell.exe",
+        "-NoLogo",
+        "-NoProfile",
+        "-NoExit",
+        "-File",
+        str(PROMPT_SCRIPT),
+        "-Label",
+        label,
+        "-Accent",
+        accent,
+    ]
+
 
 # Default stations. Edit / extend freely. Order matters: the grid fills
 # left-to-right, top-to-bottom, and the first pane spans the full height
 # (see #pane-copilot in lcars.tcss).
 DEFAULT_PANES = [
     dict(id="pane-copilot", title="GITHUB COPILOT", command="powershell.exe -NoLogo -Command copilot", accent="#9999ff"),
-    dict(id="pane-pwsh", title="POWERSHELL", command="powershell.exe -NoLogo", accent="#ff9c00"),
-    dict(id="pane-shell", title="AUX TERMINAL", command="powershell.exe -NoLogo", accent="#99ccff"),
+    dict(id="pane-pwsh", title="POWERSHELL", command=_pwsh("PWSH", "DarkYellow"), accent="#ff9c00"),
 ]
+
+# The auxiliary station: hidden by default, toggled on/off via the AUX button.
+AUX_PANE = dict(id="pane-shell", title="AUX TERMINAL", command=_pwsh("AUX", "Cyan"), accent="#99ccff")
 
 
 class NewPaneScreen(ModalScreen[str]):
@@ -64,15 +90,15 @@ class LcarsApp(App):
     def compose(self) -> ComposeResult:
         with Horizontal(id="root"):
             with Vertical(id="sidebar"):
-                yield Static("\u25c9 LCARS", id="elbow-top")
+                yield Static("\u25c9", id="elbow-top")
                 yield Button("PWSH", id="focus-pane-pwsh", classes="btn-orange")
-                yield Button("COPILOT", id="focus-pane-copilot", classes="btn-lilac")
-                yield Button("AUX", id="focus-pane-shell", classes="btn-blue")
+                yield Button("COPLT", id="focus-pane-copilot", classes="btn-lilac")
+                yield Button("AUX", id="toggle-aux", classes="btn-blue")
                 yield Static(id="sidebar-spacer")
                 yield Button("NEW", id="new-pane", classes="btn-yellow")
                 yield Button("KILL", id="kill-pane", classes="btn-red")
                 yield Button("QUIT", id="quit", classes="btn-orange")
-                yield Static("\u25c9 2410", id="elbow-bottom")
+                yield Static("\u25c9", id="elbow-bottom")
             with Vertical(id="main"):
                 yield Static(self.TITLE, id="topbar")
                 with Container(id="panes"):
@@ -94,7 +120,7 @@ class LcarsApp(App):
         self.query_one("#bottombar", Static).update(f"STARDATE {stamp}")
 
     # -- sidebar actions -------------------------------------------------
-    def on_button_pressed(self, event: Button.Pressed) -> None:
+    async def on_button_pressed(self, event: Button.Pressed) -> None:
         button_id = event.button.id or ""
         if button_id == "quit":
             self.exit()
@@ -102,10 +128,29 @@ class LcarsApp(App):
             self.action_new_pane()
         elif button_id == "kill-pane":
             self.action_kill_pane()
+        elif button_id == "toggle-aux":
+            await self.action_toggle_aux()
         elif button_id.startswith("focus-"):
             pane_id = button_id.removeprefix("focus-")
-            pane = self.query_one(f"#{pane_id}", TerminalPane)
+            try:
+                pane = self.query_one(f"#{pane_id}", TerminalPane)
+            except NoMatches:
+                return
             pane.terminal.focus()
+
+    async def action_toggle_aux(self) -> None:
+        panes = self.query_one("#panes", Container)
+        try:
+            pane = panes.query_one(f"#{AUX_PANE['id']}", TerminalPane)
+        except NoMatches:
+            pane = TerminalPane(
+                AUX_PANE["title"], AUX_PANE["command"], accent=AUX_PANE["accent"], id=AUX_PANE["id"]
+            )
+            await panes.mount(pane)
+            pane.terminal.focus()
+        else:
+            pane.terminal.stop()
+            await pane.remove()
 
     def action_new_pane(self) -> None:
         def handle_result(command: str | None) -> None:

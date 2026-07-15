@@ -102,7 +102,7 @@ class Terminal(Widget, can_focus=True):
 
     def __init__(
         self,
-        command: str,
+        command: str | list[str],
         *,
         name: Optional[str] = None,
         id: Optional[str] = None,  # noqa: A002
@@ -247,6 +247,28 @@ class Terminal(Widget, can_focus=True):
         return Text("\n").join(lines)
 
 
+_NAMED_COLORS = {
+    "black": "black",
+    "red": "red",
+    "green": "green",
+    "brown": "yellow",
+    "yellow": "yellow",
+    "blue": "blue",
+    "magenta": "magenta",
+    "cyan": "cyan",
+    "white": "white",
+    "brightblack": "bright_black",
+    "brightred": "bright_red",
+    "brightgreen": "bright_green",
+    "brightbrown": "bright_yellow",
+    "brightyellow": "bright_yellow",
+    "brightblue": "bright_blue",
+    "brightmagenta": "bright_magenta",
+    "brightcyan": "bright_cyan",
+    "brightwhite": "bright_white",
+}
+
+
 def _color(value: str) -> Optional[str]:
     if not value or value == "default":
         return None
@@ -255,5 +277,5 @@ def _color(value: str) -> Optional[str]:
             int(value, 16)
             return f"#{value}"
         except ValueError:
-            return value
-    return value
+            pass
+    return _NAMED_COLORS.get(value, None)

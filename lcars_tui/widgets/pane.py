@@ -40,7 +40,7 @@ class TerminalPane(Vertical):
     def __init__(
         self,
         title: str,
-        command: str,
+        command: str | list[str],
         *,
         accent: str = "#ff9c00",
         name: str | None = None,
@@ -53,7 +53,7 @@ class TerminalPane(Vertical):
         self.accent = accent
 
     def compose(self) -> ComposeResult:
-        header = PaneHeader(f"\u25c0 {self.title_text} \u25b6")
+        header = PaneHeader(self.title_text)
         header.styles.background = self.accent
         yield header
         yield Terminal(self.command, id=f"{self.id}-term")
