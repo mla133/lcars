@@ -4,14 +4,23 @@ other console program side by side, Star-Trek-console fashion.
 
 from __future__ import annotations
 
+import urllib.request
 from datetime import datetime
 from pathlib import Path
 
+from textual import work
 from textual.app import App, ComposeResult
 from textual.containers import Container, Horizontal, Vertical
 from textual.css.query import NoMatches
 from textual.screen import ModalScreen
 from textual.widgets import Button, Input, Static
+
+# Compact single-line local forecast (auto-located by wttr.in via IP), e.g.
+# "\u2601\ufe0f +14\u00b0C". format=1 keeps it short enough for the sidebar's
+# elbow block; a short timeout means a dead/absent network just leaves the
+# block blank instead of hanging the UI.
+WEATHER_URL = "https://wttr.in/?format=1"
+WEATHER_REFRESH_SECS = 900
 
 from .widgets.pane import TerminalPane
 from .widgets.terminal import Terminal
@@ -96,7 +105,7 @@ class LcarsApp(App):
     def compose(self) -> ComposeResult:
         with Horizontal(id="root"):
             with Vertical(id="sidebar"):
-                yield Static("\u25c9", id="elbow-top")
+                yield Static(id="elbow-top")
                 with Container(classes="btn-shell btn-lilac"):
                     yield Button("COPILOT", id="tab-pane-copilot")
                 with Container(classes="btn-shell btn-orange"):
@@ -124,6 +133,23 @@ class LcarsApp(App):
         self.set_interval(1, self._tick)
         self._tick()
         self._activate(DEFAULT_TAB)
+        self.set_interval(WEATHER_REFRESH_SECS, self._fetch_weather)
+        self._fetch_weather()
+
+    @work(thread=True, exclusive=True)
+    def _fetch_weather(self) -> None:
+        """Fetch a compact local forecast from wttr.in for the upper-left
+        elbow block. Runs off the UI thread; any failure (no network, DNS,
+        timeout, etc.) just blanks the block rather than raising."""
+        try:
+            with urllib.request.urlopen(WEATHER_URL, timeout=3) as resp:
+                text = resp.read().decode("utf-8", "replace").strip()
+        except Exception:
+            text = ""
+        self.call_from_thread(self._set_weather, text)
+
+    def _set_weather(self, text: str) -> None:
+        self.query_one("#elbow-top", Static).update(text)
 
     def _tick(self) -> None:
         stamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
