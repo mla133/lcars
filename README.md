@@ -39,7 +39,8 @@ python -m venv .venv
 - `Ctrl+G` — change the focused pane's working directory: opens a dialog
   pre-filled with its current directory, then restarts its process in the
   directory you enter (validated to exist first; invalid input just beeps
-  and leaves the pane untouched).
+  and leaves the pane untouched). Also available via the `CD` sidebar
+  button.
 - `Ctrl+Q` — quit (also available via the `QUIT` sidebar button).
 - Click into any pane and type normally — keystrokes are forwarded to the
   real console process running inside it.

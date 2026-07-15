@@ -158,6 +158,8 @@ class LcarsApp(App):
                     yield Button("NEW", id="new-pane")
                 with Container(classes="btn-shell btn-orange"):
                     yield Button("KILL", id="kill-pane")
+                with Container(classes="btn-shell btn-lilac"):
+                    yield Button("CD", id="change-dir")
                 with Container(classes="btn-shell btn-red"):
                     yield Button("QUIT", id="quit")
                 yield Static("\u25c9", id="elbow-bottom")
@@ -258,6 +260,8 @@ class LcarsApp(App):
             self.action_new_pane()
         elif button_id == "kill-pane":
             self.action_kill_pane()
+        elif button_id == "change-dir":
+            self.action_change_dir()
         elif button_id == "toggle-aux":
             await self.action_toggle_aux()
         elif button_id.startswith("tab-"):
