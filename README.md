@@ -48,6 +48,35 @@ prompt (`lcars_tui/assets/lcars_prompt.ps1`) instead of your normal profile
 theme. Edit that script to change the prompt's look, or pass a different
 `-Accent`/`-Label` when building the command in `lcars_tui/app.py`.
 
+## Portable build (no Python required on the target machine)
+
+A standalone build can be produced with [PyInstaller](https://pyinstaller.org)
+so the app runs on any Windows machine without installing Python or any
+dependency:
+
+```powershell
+.\build.ps1
+# or, if PyInstaller isn't installed yet and you have a wheelhouse:
+.\build.ps1 -Wheelhouse <your-wheelhouse>
+```
+
+This runs `pyinstaller lcars.spec` and produces a folder at `dist\lcars\`
+containing `lcars.exe` plus all its dependencies (Textual, pywinpty's native
+DLLs, etc.). Zip up `dist\lcars\` and copy it anywhere -- run `lcars.exe`
+from inside that folder.
+
+Notes:
+- It's a **onedir** (folder), not onefile, build on purpose: onefile
+  re-extracts pywinpty's native DLLs into a temp dir on every launch, which
+  is slower to start and more likely to trigger antivirus heuristics.
+- `lcars.spec` explicitly lists `lcars_tui/lcars.tcss` and
+  `lcars_tui/assets/lcars_prompt.ps1` as `datas` -- PyInstaller only
+  auto-bundles `.py` files, so any new non-Python asset added under
+  `lcars_tui/` (fonts, scripts, etc.) needs to be added to `datas` in
+  `lcars.spec` too, or the frozen build won't find it.
+- The console window is kept (`console=True` in the spec) since this is a
+  terminal UI, not a windowed GUI app.
+
 ## Customizing stations
 
 Edit `DEFAULT_PANES` (and `AUX_PANE`) in `lcars_tui/app.py` to change the

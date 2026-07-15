@@ -49,6 +49,10 @@ There are no tests, linters, or CI configured in this repo. Validate changes by 
   panes instead of the user's normal profile (panes launch with `-NoProfile -NoExit`). Takes
   `-Label`/`-Accent` params built in `app.py`'s `_pwsh()` helper.
 - `lcars_tui/lcars.tcss` — Textual CSS for the LCARS look (colors, borders, sidebar layout).
+- `lcars.spec` / `build.ps1` — PyInstaller spec and build script producing a portable, onedir
+  `dist\lcars\lcars.exe` that runs without Python installed on the target machine. Any new
+  non-`.py` asset added under `lcars_tui/` must be added to the `datas` list in `lcars.spec`, or
+  the frozen build won't find it (PyInstaller only auto-bundles `.py` files).
 
 ## Conventions
 
