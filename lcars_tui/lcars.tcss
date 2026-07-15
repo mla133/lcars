@@ -131,7 +131,7 @@ Screen {
 #cwd-bar {
     height: 1;
     width: 1fr;
-    background: $lcars-red;
+    background: $lcars-blue;
     color: $lcars-black;
     text-style: bold;
     content-align: left middle;
