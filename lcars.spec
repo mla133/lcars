@@ -7,6 +7,8 @@
 # Copy that whole folder anywhere on a Windows machine and run lcars.exe;
 # no Python installation is required on the target machine.
 
+import os
+
 from PyInstaller.utils.hooks import collect_data_files
 
 block_cipher = None
@@ -18,6 +20,21 @@ datas = [
     ("lcars_tui/lcars.tcss", "lcars_tui"),
     ("lcars_tui/assets/lcars_prompt.ps1", "lcars_tui/assets"),
 ]
+
+# pywinpty's native extension (_winpty.pyd) locates these two helper
+# executables by path at runtime rather than importing/linking them, so
+# PyInstaller's automatic binary dependency scan never picks them up (it
+# only follows winpty.dll/conpty.dll, which _winpty.pyd does link against).
+# Without them, PtyProcess.spawn() fails silently and every terminal pane
+# stays blank/nonresponsive in the frozen build even though the rest of the
+# UI works fine. They must live next to _winpty.pyd inside "winpty/".
+import winpty  # noqa: E402
+
+winpty_dir = os.path.dirname(winpty.__file__)
+for helper in ("OpenConsole.exe", "winpty-agent.exe"):
+    helper_path = os.path.join(winpty_dir, helper)
+    if os.path.exists(helper_path):
+        datas.append((helper_path, "winpty"))
 
 a = Analysis(
     ["lcars_tui/__main__.py"],
