@@ -93,6 +93,7 @@ RESERVED_APP_KEYS = frozenset(
         "ctrl+k",
         "ctrl+r",
         "ctrl+g",
+        "ctrl+t",
     }
 )
 

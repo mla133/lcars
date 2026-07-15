@@ -41,6 +41,13 @@ python -m venv .venv
   directory you enter (validated to exist first; invalid input just beeps
   and leaves the pane untouched). Also available via the `CD` sidebar
   button.
+- `Ctrl+T` — toggle the whole app's color theme between the classic cool
+  "TNG" orange/lilac/blue palette and a warmer "DS9" red/gold/amber one.
+  Also available via the `THEME` sidebar button. Every `$lcars-*` CSS
+  variable is redefined per theme in `LcarsApp.get_css_variables()`
+  (`THEMES` in `app.py`), so this recolors the sidebar, panes, status
+  bars, and elbows all at once -- add a new palette there (and to
+  `THEME_ORDER`) to add more themes.
 - `Ctrl+Q` — quit (also available via the `QUIT` sidebar button).
 - Click into any pane and type normally — keystrokes are forwarded to the
   real console process running inside it.

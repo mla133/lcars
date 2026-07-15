@@ -1,12 +1,8 @@
-/* LCARS color palette */
-$lcars-black: #000000;
-$lcars-orange: #ff9c00;
-$lcars-peach: #ffcc99;
-$lcars-red: #cc6666;
-$lcars-lilac: #9999ff;
-$lcars-blue: #99ccff;
-$lcars-yellow: #ffcc00;
-$lcars-green: #66cc66;
+/* LCARS color palette -- values are supplied at runtime by
+   LcarsApp.get_css_variables() (see the THEMES dict in app.py), NOT
+   declared here: a literal `$lcars-x: ...;` in this file would take
+   precedence over get_css_variables() and permanently block Ctrl+T
+   from re-theming anything using that variable. */
 
 Screen {
     background: $lcars-black;

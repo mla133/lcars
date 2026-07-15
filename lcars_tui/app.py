@@ -23,6 +23,37 @@ from textual.widgets import Button, Input, Static
 WEATHER_URL = "https://wttr.in/?format=1"
 WEATHER_REFRESH_SECS = 900
 
+# Alternate full-app color palettes, swapped at runtime via Ctrl+T /
+# LcarsApp.get_css_variables(). Every `$lcars-*` variable used throughout
+# lcars.tcss is redefined here per theme, so toggling recolors the whole UI
+# (sidebar, panes, status bars, elbows) in one shot -- no CSS class juggling
+# needed. "tng" is the classic cool orange/lilac/blue console look; "ds9" is
+# a warmer red/gold/amber station-console palette (Cardassian-influenced,
+# no blue/lilac accents).
+THEMES: dict[str, dict[str, str]] = {
+    "tng": {
+        "lcars-black": "#000000",
+        "lcars-orange": "#ff9c00",
+        "lcars-peach": "#ffcc99",
+        "lcars-red": "#cc6666",
+        "lcars-lilac": "#9999ff",
+        "lcars-blue": "#99ccff",
+        "lcars-yellow": "#ffcc00",
+        "lcars-green": "#66cc66",
+    },
+    "ds9": {
+        "lcars-black": "#000000",
+        "lcars-orange": "#cc6633",
+        "lcars-peach": "#ffcc66",
+        "lcars-red": "#990000",
+        "lcars-lilac": "#cc9933",
+        "lcars-blue": "#cc8533",
+        "lcars-yellow": "#ffcc00",
+        "lcars-green": "#669966",
+    },
+}
+THEME_ORDER = ("tng", "ds9")
+
 from .widgets.pane import TerminalPane
 from .widgets.terminal import Terminal
 
@@ -136,12 +167,19 @@ class LcarsApp(App):
         ("ctrl+k", "kill_pane", "Kill focused pane"),
         ("ctrl+r", "restart_pane", "Restart focused pane"),
         ("ctrl+g", "change_dir", "Change dir of focused pane"),
+        ("ctrl+t", "toggle_theme", "Toggle color theme"),
         ("ctrl+q", "quit", "Quit"),
     ]
 
     def __init__(self, *args, **kwargs) -> None:
+        self._theme_name = "tng"
         super().__init__(*args, **kwargs)
         self._active_tab: str | None = None
+
+    def get_css_variables(self) -> dict[str, str]:
+        variables = super().get_css_variables()
+        variables.update(THEMES[self._theme_name])
+        return variables
 
     def compose(self) -> ComposeResult:
         with Horizontal(id="root"):
@@ -160,6 +198,8 @@ class LcarsApp(App):
                     yield Button("KILL", id="kill-pane")
                 with Container(classes="btn-shell btn-lilac"):
                     yield Button("CD", id="change-dir")
+                with Container(classes="btn-shell btn-yellow"):
+                    yield Button("THEME", id="toggle-theme")
                 with Container(classes="btn-shell btn-red"):
                     yield Button("QUIT", id="quit")
                 yield Static("\u25c9", id="elbow-bottom")
@@ -277,6 +317,8 @@ class LcarsApp(App):
             self.action_kill_pane()
         elif button_id == "change-dir":
             self.action_change_dir()
+        elif button_id == "toggle-theme":
+            self.action_toggle_theme()
         elif button_id == "toggle-aux":
             await self.action_toggle_aux()
         elif button_id.startswith("tab-"):
@@ -328,6 +370,11 @@ class LcarsApp(App):
         terminal = self.focused if isinstance(self.focused, Terminal) else None
         if terminal is not None:
             terminal.restart()
+
+    def action_toggle_theme(self) -> None:
+        index = THEME_ORDER.index(self._theme_name)
+        self._theme_name = THEME_ORDER[(index + 1) % len(THEME_ORDER)]
+        self.refresh_css(animate=False)
 
     def action_change_dir(self) -> None:
         terminal = self.focused if isinstance(self.focused, Terminal) else None
