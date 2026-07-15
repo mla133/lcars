@@ -23,15 +23,26 @@ from textual.widgets import Button, Input, Static
 # the friendly icon+temp glimpse a Starfleet console would; DS9's is a
 # station-ops temp+humidity reading; Klingon's is a terse ALL-CAPS
 # text-only condition+temp (no cutesy emoji on a warship); Romulan's is a
-# cold-empire temp+wind reading. "&m" forces metric (Celsius) units
-# everywhere so switching themes doesn't also change the temperature
-# scale. A short per-request timeout means a dead/absent network just
-# leaves the block blank instead of hanging the UI.
+# cold-empire temp+moon-phase reading. Units are pinned per theme regardless of
+# the requester's locale: TNG and Klingon read out in Fahrenheit ("&u",
+# USCS units) while DS9 and Romulan stay in Celsius ("&m", metric) so
+# switching themes doesn't randomly change the temperature scale. A short
+# per-request timeout means a dead/absent network just leaves the block
+# blank instead of hanging the UI.
 WEATHER_FORMATS: dict[str, str] = {
-    "tng": "%c+%t",       # e.g. "\u2601\ufe0f +14\u00b0C"
+    "tng": "%c+%t",       # e.g. "\u2601\ufe0f +57\u00b0F"
     "ds9": "%t+%h",       # e.g. "+14\u00b0C 62%"
-    "klingon": "%C+%t",   # e.g. "CLOUDY +14\u00b0C" (uppercased below)
-    "romulan": "%t+%w",   # e.g. "+14\u00b0C \u219710km/h"
+    "klingon": "%C+%t",   # e.g. "CLOUDY +57\u00b0F" (uppercased below)
+    "romulan": "%t+%m",   # e.g. "+14\u00b0C \U0001f314"
+}
+
+# Per-theme wttr.in unit flag: Fahrenheit ("&u") for TNG/Klingon, Celsius
+# ("&m") for everyone else.
+WEATHER_UNITS: dict[str, str] = {
+    "tng": "u",
+    "ds9": "m",
+    "klingon": "u",
+    "romulan": "m",
 }
 WEATHER_REFRESH_SECS = 900
 
@@ -353,7 +364,8 @@ class LcarsApp(App):
         WEATHER_FORMATS). Runs off the UI thread; any failure (no network,
         DNS, timeout, etc.) just blanks the block rather than raising."""
         fmt = WEATHER_FORMATS[self._theme_name]
-        url = f"https://wttr.in/?format={fmt}&m"
+        units = WEATHER_UNITS[self._theme_name]
+        url = f"https://wttr.in/?format={fmt}&{units}"
         try:
             with urllib.request.urlopen(url, timeout=3) as resp:
                 text = resp.read().decode("utf-8", "replace").strip()
