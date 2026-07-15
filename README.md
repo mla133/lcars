@@ -36,6 +36,10 @@ python -m venv .venv
   becomes its own tab).
 - `Ctrl+K` — kill the focused pane's process.
 - `Ctrl+R` — restart the focused pane's process.
+- `Ctrl+G` — change the focused pane's working directory: opens a dialog
+  pre-filled with its current directory, then restarts its process in the
+  directory you enter (validated to exist first; invalid input just beeps
+  and leaves the pane untouched).
 - `Ctrl+Q` — quit (also available via the `QUIT` sidebar button).
 - Click into any pane and type normally — keystrokes are forwarded to the
   real console process running inside it.
@@ -121,6 +125,10 @@ start "" "C:\path\to\dist\lcars\lcars.exe"
 
 Then make the Desktop shortcut's target `launch-lcars.bat` instead of
 `lcars.exe`.
+
+To change directory from *inside* a running app (no restart of the whole
+app or shortcut editing needed), press `Ctrl+G` on a focused pane -- see
+the keybindings list above.
 
 ## Customizing stations
 

@@ -93,6 +93,36 @@ class NewPaneScreen(ModalScreen[str]):
         self.dismiss(event.value.strip() or None)
 
 
+class ChangeDirScreen(ModalScreen[str]):
+    """Modal dialog asking for a directory to restart the focused pane in."""
+
+    def __init__(self, current: str | None) -> None:
+        super().__init__()
+        self._current = current or ""
+
+    def compose(self) -> ComposeResult:
+        with Vertical(id="new-pane-dialog"):
+            yield Static("CHANGE DIRECTORY FOR FOCUSED PANE")
+            yield Input(
+                value=self._current,
+                placeholder=r"e.g. C:\Users\you\projects\thing",
+                id="cwd-input",
+            )
+            with Horizontal():
+                yield Button("GO", id="launch", variant="success")
+                yield Button("CANCEL", id="cancel", variant="error")
+
+    def on_button_pressed(self, event: Button.Pressed) -> None:
+        if event.button.id == "launch":
+            value = self.query_one("#cwd-input", Input).value.strip()
+            self.dismiss(value or None)
+        else:
+            self.dismiss(None)
+
+    def on_input_submitted(self, event: Input.Submitted) -> None:
+        self.dismiss(event.value.strip() or None)
+
+
 class LcarsApp(App):
     """The main LCARS console application."""
 
@@ -105,6 +135,7 @@ class LcarsApp(App):
         ("ctrl+n", "new_pane", "New pane"),
         ("ctrl+k", "kill_pane", "Kill focused pane"),
         ("ctrl+r", "restart_pane", "Restart focused pane"),
+        ("ctrl+g", "change_dir", "Change dir of focused pane"),
         ("ctrl+q", "quit", "Quit"),
     ]
 
@@ -278,6 +309,22 @@ class LcarsApp(App):
         terminal = self.focused if isinstance(self.focused, Terminal) else None
         if terminal is not None:
             terminal.restart()
+
+    def action_change_dir(self) -> None:
+        terminal = self.focused if isinstance(self.focused, Terminal) else None
+        if terminal is None:
+            return
+
+        def handle_result(path: str | None) -> None:
+            if not path:
+                return
+            expanded = os.path.expandvars(os.path.expanduser(path))
+            if not os.path.isdir(expanded):
+                self.bell()
+                return
+            terminal.restart(cwd=expanded)
+
+        self.push_screen(ChangeDirScreen(terminal.cwd), handle_result)
 
     def on_terminal_process_exited(self, message: Terminal.ProcessExited) -> None:
         message.terminal.refresh()

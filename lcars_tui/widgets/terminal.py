@@ -83,7 +83,17 @@ _KEY_MAP = {
 # BINDINGS instead. Kept to an uncommon, small set so we don't clobber
 # shell/editor keybindings (e.g. Ctrl+R for PSReadLine reverse search).
 RESERVED_APP_KEYS = frozenset(
-    {"ctrl+1", "ctrl+2", "ctrl+3", "ctrl+4", "ctrl+q", "ctrl+n", "ctrl+k", "ctrl+r"}
+    {
+        "ctrl+1",
+        "ctrl+2",
+        "ctrl+3",
+        "ctrl+4",
+        "ctrl+q",
+        "ctrl+n",
+        "ctrl+k",
+        "ctrl+r",
+        "ctrl+g",
+    }
 )
 
 
@@ -174,7 +184,15 @@ class Terminal(Widget, can_focus=True):
             except Exception:
                 pass
 
-    def restart(self) -> None:
+    def restart(self, *, cwd: Optional[str] = None) -> None:
+        """Stop the current child process and start a fresh one.
+
+        If ``cwd`` is given, the pane's working directory is updated first,
+        so the new process launches there (used by the in-app "change
+        directory" dialog); otherwise it keeps whatever directory it had.
+        """
+        if cwd is not None:
+            self.cwd = cwd
         self.stop()
         if self._screen is not None:
             self._screen.reset()
