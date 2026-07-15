@@ -31,7 +31,9 @@ WEATHER_REFRESH_SECS = 900
 # a warmer red/gold/amber station-console palette (Cardassian-influenced,
 # no blue/lilac accents); "klingon" is a hot red/orange/gold warship-console
 # palette (Qapla'!) with no blue/lilac/green accents at all -- those slots
-# are remapped onto the red/orange/gold family so nothing stays "cool".
+# are remapped onto the red/orange/gold family so nothing stays "cool";
+# "romulan" is a cold green/yellow Star Empire console palette -- no red/
+# orange/blue accents, those slots are remapped onto the green/yellow family.
 THEMES: dict[str, dict[str, str]] = {
     "tng": {
         "lcars-black": "#000000",
@@ -63,8 +65,18 @@ THEMES: dict[str, dict[str, str]] = {
         "lcars-yellow": "#ffd700",
         "lcars-green": "#e6a817",
     },
+    "romulan": {
+        "lcars-black": "#000000",
+        "lcars-orange": "#8fbc4d",
+        "lcars-peach": "#c5e17a",
+        "lcars-red": "#4a7a2a",
+        "lcars-lilac": "#7fbf3f",
+        "lcars-blue": "#6b8e23",
+        "lcars-yellow": "#d4d900",
+        "lcars-green": "#33691e",
+    },
 }
-THEME_ORDER = ("tng", "ds9", "klingon")
+THEME_ORDER = ("tng", "ds9", "klingon", "romulan")
 
 # Unicode "Mathematical Sans-Serif Bold Italic" letters -- a sharp, slanted,
 # aggressive-looking glyph set (closer to a warship-console/warrior feel
@@ -203,7 +215,7 @@ GLOBAL
   Ctrl+K                     Kill the focused pane's process
   Ctrl+R                     Restart the focused pane's process
   Ctrl+G                     Change directory of the focused pane
-  Ctrl+T                     Toggle color theme (TNG / DS9 / Klingon)
+  Ctrl+T                     Toggle color theme (TNG / DS9 / Klingon / Romulan)
   F1                         Show this help
   Ctrl+Q                     Quit
 
