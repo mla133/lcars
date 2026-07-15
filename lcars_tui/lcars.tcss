@@ -125,6 +125,22 @@ Screen {
 
 #bottombar {
     height: 1;
+    background: $lcars-black;
+}
+
+#cwd-bar {
+    height: 1;
+    width: 1fr;
+    background: $lcars-red;
+    color: $lcars-black;
+    text-style: bold;
+    content-align: left middle;
+    padding: 0 2;
+}
+
+#stardate-bar {
+    height: 1;
+    width: 1fr;
     background: $lcars-lilac;
     color: $lcars-black;
     text-style: bold;

@@ -174,7 +174,9 @@ class LcarsApp(App):
                             cwd=START_DIR,
                             id=spec["id"],
                         )
-                yield Static(id="bottombar")
+                with Horizontal(id="bottombar"):
+                    yield Static(id="cwd-bar")
+                    yield Static(id="stardate-bar")
 
     def on_mount(self) -> None:
         self.set_interval(1, self._tick)
@@ -200,8 +202,20 @@ class LcarsApp(App):
 
     def _tick(self) -> None:
         stamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        self.query_one("#bottombar", Static).update(f"STARDATE {stamp}")
+        self.query_one("#stardate-bar", Static).update(f"STARDATE {stamp}")
+        self._update_cwd_bar()
         self._update_activity_indicator()
+
+    def _update_cwd_bar(self) -> None:
+        """Show the active pane's working directory in the bottom-left bar."""
+        panes = self.query_one("#panes", Container)
+        try:
+            active = panes.query_one(f"#{self._active_tab}", TerminalPane)
+        except NoMatches:
+            self.query_one("#cwd-bar", Static).update("")
+            return
+        cwd = active.terminal.cwd or os.getcwd()
+        self.query_one("#cwd-bar", Static).update(f"CWD: {cwd}")
 
     def _update_activity_indicator(self) -> None:
         busy = self._busy_background_panes()
@@ -238,6 +252,7 @@ class LcarsApp(App):
         self._active_tab = pane_id
         active.terminal.focus()
         self._update_tab_buttons()
+        self._update_cwd_bar()
 
     def _update_tab_buttons(self) -> None:
         for button in self.query("#sidebar Button"):
@@ -327,6 +342,7 @@ class LcarsApp(App):
                 self.bell()
                 return
             terminal.restart(cwd=expanded)
+            self._update_cwd_bar()
 
         self.push_screen(ChangeDirScreen(terminal.cwd), handle_result)
 
