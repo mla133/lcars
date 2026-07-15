@@ -29,7 +29,9 @@ WEATHER_REFRESH_SECS = 900
 # (sidebar, panes, status bars, elbows) in one shot -- no CSS class juggling
 # needed. "tng" is the classic cool orange/lilac/blue console look; "ds9" is
 # a warmer red/gold/amber station-console palette (Cardassian-influenced,
-# no blue/lilac accents).
+# no blue/lilac accents); "klingon" is a hot red/orange/gold warship-console
+# palette (Qapla'!) with no blue/lilac/green accents at all -- those slots
+# are remapped onto the red/orange/gold family so nothing stays "cool".
 THEMES: dict[str, dict[str, str]] = {
     "tng": {
         "lcars-black": "#000000",
@@ -51,8 +53,44 @@ THEMES: dict[str, dict[str, str]] = {
         "lcars-yellow": "#ffcc00",
         "lcars-green": "#669966",
     },
+    "klingon": {
+        "lcars-black": "#000000",
+        "lcars-orange": "#ff6600",
+        "lcars-peach": "#ffb347",
+        "lcars-red": "#990000",
+        "lcars-lilac": "#cc0000",
+        "lcars-blue": "#ff9c00",
+        "lcars-yellow": "#ffd700",
+        "lcars-green": "#e6a817",
+    },
 }
-THEME_ORDER = ("tng", "ds9")
+THEME_ORDER = ("tng", "ds9", "klingon")
+
+# Unicode "Mathematical Sans-Serif Bold Italic" letters -- a sharp, slanted,
+# aggressive-looking glyph set (closer to a warship-console/warrior feel
+# than plain upright bold) for every ASCII letter, plus "Sans-Serif Bold"
+# digits (that block has no italic digit glyphs). All render correctly in
+# any modern terminal font (no special Klingon/pIqaD font needs to be
+# installed). Used to give status bars and pane titles a different "font"
+# while the Klingon theme is active; see _stylize_text().
+_SANS_BOLD_ITALIC_UPPER_START = 0x1D63C  # 'A'
+_SANS_BOLD_ITALIC_LOWER_START = 0x1D656  # 'a'
+_SANS_BOLD_DIGIT_START = 0x1D7EC  # '0'
+
+
+def _stylize_text(text: str) -> str:
+    """Re-render `text` in the Klingon-theme "alien font" glyph set."""
+    out = []
+    for ch in text:
+        if "A" <= ch <= "Z":
+            out.append(chr(_SANS_BOLD_ITALIC_UPPER_START + (ord(ch) - ord("A"))))
+        elif "a" <= ch <= "z":
+            out.append(chr(_SANS_BOLD_ITALIC_LOWER_START + (ord(ch) - ord("a"))))
+        elif "0" <= ch <= "9":
+            out.append(chr(_SANS_BOLD_DIGIT_START + (ord(ch) - ord("0"))))
+        else:
+            out.append(ch)
+    return "".join(out)
 
 from .widgets.pane import TerminalPane
 from .widgets.terminal import Terminal
@@ -165,7 +203,7 @@ GLOBAL
   Ctrl+K                     Kill the focused pane's process
   Ctrl+R                     Restart the focused pane's process
   Ctrl+G                     Change directory of the focused pane
-  Ctrl+T                     Toggle color theme (TNG / DS9)
+  Ctrl+T                     Toggle color theme (TNG / DS9 / Klingon)
   F1                         Show this help
   Ctrl+Q                     Quit
 
@@ -228,6 +266,22 @@ class LcarsApp(App):
         variables.update(THEMES[self._theme_name])
         return variables
 
+    def _display_text(self, text: str) -> str:
+        """Apply the Klingon-theme "alien font" glyphs to `text` if active."""
+        if self._theme_name == "klingon":
+            return _stylize_text(text)
+        return text
+
+    def _refresh_titles(self) -> None:
+        """Re-render the topbar and every pane's header to match the
+        current theme's font styling (plain ASCII, or Klingon glyphs)."""
+        try:
+            self.query_one("#topbar", Static).update(self._display_text(self.TITLE))
+        except NoMatches:
+            pass
+        for pane in self.query_one("#panes", Container).query(TerminalPane):
+            pane.set_displayed_title(self._display_text(pane.title_text))
+
     def compose(self) -> ComposeResult:
         with Horizontal(id="root"):
             with Vertical(id="sidebar"):
@@ -271,6 +325,7 @@ class LcarsApp(App):
         self.set_interval(1, self._tick)
         self._tick()
         self._activate(DEFAULT_TAB)
+        self._refresh_titles()
         self.set_interval(WEATHER_REFRESH_SECS, self._fetch_weather)
         self._fetch_weather()
 
@@ -291,7 +346,7 @@ class LcarsApp(App):
 
     def _tick(self) -> None:
         stamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        self.query_one("#stardate-bar", Static).update(f"STARDATE {stamp}")
+        self.query_one("#stardate-bar", Static).update(self._display_text(f"STARDATE {stamp}"))
         self._update_cwd_bar()
         self._update_activity_indicator()
 
@@ -304,14 +359,14 @@ class LcarsApp(App):
             self.query_one("#cwd-bar", Static).update("")
             return
         cwd = active.terminal.cwd or os.getcwd()
-        self.query_one("#cwd-bar", Static).update(f"CWD: {cwd}")
+        self.query_one("#cwd-bar", Static).update(self._display_text(f"CWD: {cwd}"))
 
     def _update_activity_indicator(self) -> None:
         busy = self._busy_background_panes()
         indicator = self.query_one("#elbow-bottom", Static)
         indicator.set_class(bool(busy), "busy")
         if busy:
-            indicator.update(", ".join(busy))
+            indicator.update(self._display_text(", ".join(busy)))
             indicator.tooltip = f"WORKING: {', '.join(busy)}"
         else:
             indicator.update("\u25c9")
@@ -391,6 +446,7 @@ class LcarsApp(App):
                 closable=True,
             )
             await panes.mount(pane)
+            pane.set_displayed_title(self._display_text(pane.title_text))
             self._activate(AUX_PANE["id"])
         else:
             if self._active_tab == AUX_PANE["id"]:
@@ -429,6 +485,7 @@ class LcarsApp(App):
                 f"STATION {index}", command, accent="#cc6666", cwd=START_DIR, id=pane_id, closable=True
             )
             await panes.mount(pane)
+            pane.set_displayed_title(self._display_text(pane.title_text))
             self._activate(pane_id)
 
         self.push_screen(NewPaneScreen(), handle_result)
@@ -463,6 +520,7 @@ class LcarsApp(App):
         index = THEME_ORDER.index(self._theme_name)
         self._theme_name = THEME_ORDER[(index + 1) % len(THEME_ORDER)]
         self.refresh_css(animate=False)
+        self._refresh_titles()
 
     def action_show_help(self) -> None:
         self.push_screen(HelpScreen())
