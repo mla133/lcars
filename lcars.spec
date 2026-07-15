@@ -62,6 +62,7 @@ exe = EXE(
     strip=False,
     upx=False,
     console=True,  # this is a terminal UI -- must keep a console window
+    icon="lcars_tui/assets/lcars.ico",
     disable_windowed_traceback=False,
     target_arch=None,
     codesign_identity=None,

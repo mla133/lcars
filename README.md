@@ -76,6 +76,27 @@ Notes:
   `lcars.spec` too, or the frozen build won't find it.
 - The console window is kept (`console=True` in the spec) since this is a
   terminal UI, not a windowed GUI app.
+- `lcars.exe` is built with an LCARS-panel-inspired icon
+  (`lcars_tui/assets/lcars.ico`). It's a committed, generated asset -- run
+  `.\.venv\Scripts\python.exe tools\make_icon.py` to regenerate it if you
+  want to tweak the design (pure stdlib PNG/ICO writer; Pillow isn't
+  available for this project's Python version in the offline wheelhouse).
+
+### Desktop shortcut
+
+To launch from the Desktop or Start menu, create a shortcut to
+`dist\lcars\lcars.exe` (e.g. right-click the exe in Explorer ->
+"Show more options" -> "Send to" -> "Desktop (create shortcut)", or via
+PowerShell):
+
+```powershell
+$ws = New-Object -ComObject WScript.Shell
+$s = $ws.CreateShortcut("$([Environment]::GetFolderPath('Desktop'))\LCARS Terminal.lnk")
+$s.TargetPath = "C:\path\to\dist\lcars\lcars.exe"
+$s.WorkingDirectory = "C:\path\to\dist\lcars"
+$s.IconLocation = "$($s.TargetPath),0"
+$s.Save()
+```
 
 ## Customizing stations
 
