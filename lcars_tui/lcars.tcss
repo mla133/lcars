@@ -46,21 +46,25 @@ Screen {
     min-width: 3;
     height: 3;
     margin: 0 0 1 0;
+    background: $lcars-black;
     border: round;
     text-style: bold;
     content-align: center middle;
     padding: 0 1;
 }
 
-.btn-orange.active, .btn-lilac.active, .btn-blue.active {
-    text-style: bold reverse;
-}
+/* Outline-style pill by default (fill matches the sidebar so only the
+   rounded border ring is visible); active tab fills solid so it reads as
+   the "lit" LCARS button. */
+.btn-orange { color: $lcars-orange; border: round $lcars-orange; }
+.btn-lilac  { color: $lcars-lilac;  border: round $lcars-lilac; }
+.btn-blue   { color: $lcars-blue;   border: round $lcars-blue; }
+.btn-red    { color: $lcars-red;    border: round $lcars-red; }
+.btn-yellow { color: $lcars-yellow; border: round $lcars-yellow; }
 
-.btn-orange { background: $lcars-orange; color: $lcars-black; border: round $lcars-orange; }
-.btn-lilac  { background: $lcars-lilac;  color: $lcars-black; border: round $lcars-lilac; }
-.btn-blue   { background: $lcars-blue;   color: $lcars-black; border: round $lcars-blue; }
-.btn-red    { background: $lcars-red;    color: $lcars-black; border: round $lcars-red; }
-.btn-yellow { background: $lcars-yellow; color: $lcars-black; border: round $lcars-yellow; }
+.btn-orange.active { background: $lcars-orange; color: $lcars-black; }
+.btn-lilac.active  { background: $lcars-lilac;  color: $lcars-black; }
+.btn-blue.active   { background: $lcars-blue;   color: $lcars-black; }
 
 #sidebar-spacer {
     height: 1fr;

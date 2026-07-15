@@ -123,6 +123,8 @@ class Terminal(Widget, can_focus=True):
         self._out_queue: "Queue[bytes]" = Queue()
         self._stopped = threading.Event()
         self._missing_deps = pyte is None or PtyProcess is None
+        self._line_cache: list[Text] = []
+        self._prev_cursor_y = -1
 
     # -- lifecycle -----------------------------------------------------
     def on_mount(self) -> None:
@@ -140,6 +142,8 @@ class Terminal(Widget, can_focus=True):
         cols = max(self.size.width, 2)
         rows = max(self.size.height, 2)
         self._screen.resize(rows, cols)
+        self._line_cache = [Text()] * rows
+        self._screen.dirty.update(range(rows))
         self._proc = PtyProcess.spawn(self.command, dimensions=(rows, cols))
         self._stopped.clear()
         self._reader_thread = threading.Thread(target=self._read_loop, daemon=True)
@@ -222,6 +226,8 @@ class Terminal(Widget, can_focus=True):
         rows = max(event.size.height, 2)
         if self._screen is not None:
             self._screen.resize(rows, cols)
+            self._line_cache = [Text()] * rows
+            self._screen.dirty.update(range(rows))
         if self._proc is not None:
             try:
                 self._proc.setwinsize(rows, cols)
@@ -238,23 +244,59 @@ class Terminal(Widget, can_focus=True):
                 style="bold red",
             )
 
-        lines = []
-        for y in range(self._screen.lines):
-            row = self._screen.buffer[y]
-            text = Text()
-            for x in range(self._screen.columns):
-                char = row[x]
-                style = Style(
-                    color=_color(char.fg),
-                    bgcolor=_color(char.bg),
-                    bold=char.bold,
-                    underline=char.underscore,
-                    reverse=char.reverse,
-                    italic=char.italics,
-                )
-                text.append(char.data or " ", style=style)
-            lines.append(text)
-        return Text("\n").join(lines)
+        screen = self._screen
+        if len(self._line_cache) != screen.lines:
+            self._line_cache = [Text()] * screen.lines
+            screen.dirty.update(range(screen.lines))
+
+        cursor_y = screen.cursor.y if screen.cursor and not screen.cursor.hidden else -1
+        dirty = screen.dirty
+        # The cursor row's appearance (reverse video) changes on every move
+        # even when the underlying text doesn't, and pyte doesn't always
+        # mark a line dirty for a bare cursor move (e.g. arrow keys in an
+        # editor). Always redraw the current cursor row plus whichever row
+        # it was on last frame, so the highlight moves/clears correctly.
+        rows_to_render = set(dirty)
+        if cursor_y >= 0:
+            rows_to_render.add(cursor_y)
+        if self._prev_cursor_y >= 0:
+            rows_to_render.add(self._prev_cursor_y)
+        for y in rows_to_render:
+            if y < 0 or y >= screen.lines:
+                continue
+            self._line_cache[y] = self._render_line(screen, y, cursor_y)
+        dirty.clear()
+        self._prev_cursor_y = cursor_y
+
+        return Text("\n").join(self._line_cache)
+
+    def _render_line(self, screen, y: int, cursor_y: int) -> Text:
+        row = screen.buffer[y]
+        cursor_x = screen.cursor.x if y == cursor_y else -1
+        text = Text()
+        run_chars: list[str] = []
+        run_style: Optional[Style] = None
+        for x in range(screen.columns):
+            char = row[x]
+            reverse = char.reverse or x == cursor_x
+            style = Style(
+                color=_color(char.fg),
+                bgcolor=_color(char.bg),
+                bold=char.bold,
+                underline=char.underscore,
+                reverse=reverse,
+                italic=char.italics,
+            )
+            if run_style is not None and style == run_style:
+                run_chars.append(char.data or " ")
+            else:
+                if run_chars:
+                    text.append("".join(run_chars), style=run_style)
+                run_chars = [char.data or " "]
+                run_style = style
+        if run_chars:
+            text.append("".join(run_chars), style=run_style)
+        return text
 
 
 _NAMED_COLORS = {
