@@ -65,6 +65,7 @@ class TerminalPane(Vertical):
         command: str | list[str],
         *,
         accent: str = "#ff9c00",
+        accent_key: str | None = None,
         cwd: str | None = None,
         name: str | None = None,
         id: str | None = None,  # noqa: A002
@@ -75,17 +76,27 @@ class TerminalPane(Vertical):
         self.title_text = title
         self.command = command
         self.accent = accent
+        # Semantic theme-palette slot (e.g. "lilac", "orange") this pane's
+        # accent color was resolved from, if any -- lets LcarsApp look up
+        # the equivalent color in a new theme and re-tint this pane via
+        # set_accent_color() on Ctrl+T instead of it staying stuck on
+        # whatever palette was active when the pane was created.
+        self.accent_key = accent_key
         self.cwd = cwd
         self.closable = closable
+        self._header: PaneHeader | None = None
+        self._close_btn: ClosePaneButton | None = None
 
     def compose(self) -> ComposeResult:
         header = PaneHeader(self.title_text)
         header.styles.background = self.accent
+        self._header = header
         if self.closable:
             with Horizontal(classes="pane-header-row"):
                 yield header
                 close_btn = ClosePaneButton("\u2715", id=f"close-{self.id}")
                 close_btn.styles.background = self.accent
+                self._close_btn = close_btn
                 yield close_btn
         else:
             yield header
@@ -93,6 +104,16 @@ class TerminalPane(Vertical):
 
     def on_mount(self) -> None:
         self.styles.border = ("round", self.accent)
+
+    def set_accent_color(self, color: str) -> None:
+        """Re-tint this pane's border, header, and close button (e.g. when
+        the app-wide color theme changes) without recreating the pane."""
+        self.accent = color
+        self.styles.border = ("round", color)
+        if self._header is not None:
+            self._header.styles.background = color
+        if self._close_btn is not None:
+            self._close_btn.styles.background = color
 
     @property
     def terminal(self) -> Terminal:

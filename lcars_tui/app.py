@@ -20,7 +20,24 @@ from textual.widgets import Button, Input, Static
 # "\u2601\ufe0f +14\u00b0C". format=1 keeps it short enough for the sidebar's
 # elbow block; a short timeout means a dead/absent network just leaves the
 # block blank instead of hanging the UI.
-WEATHER_URL = "https://wttr.in/?format=1"
+# Compact single-line ****** forecast (auto-located by wttr.in via IP) shown
+# in the upper-left elbow block. Each theme gets its own wttr.in custom
+# %-format string (https://wttr.in/:help) so the readout's *content*, not
+# just its color, matches the active console's personality -- not just a
+# reskin: TNG shows the friendly icon+temp glimpse a Starfleet console
+# would; DS9's is a station-ops temp+humidity reading; Klingon's is a terse
+# ALL-CAPS text-only condition+temp (no cutesy emoji on a warship, and run
+# through the alien-font glyph set below); Romulan's is a cold-empire
+# temp+wind reading. "&m" forces metric (Celsius) units everywhere so
+# switching themes doesn't also change the temperature scale. A short
+# per-request timeout means a dead/absent network just leaves the block
+# blank instead of hanging the UI.
+WEATHER_FORMATS: dict[str, str] = {
+    "tng": "%c+%t",       # e.g. "\u2601\ufe0f +14\u00b0C"
+    "ds9": "%t+%h",       # e.g. "+14\u00b0C 62%"
+    "klingon": "%C+%t",   # e.g. "CLOUDY +14\u00b0C" (uppercased below)
+    "romulan": "%t+%w",   # e.g. "+14\u00b0C \u219710km/h"
+}
 WEATHER_REFRESH_SECS = 900
 
 # Alternate full-app color palettes, swapped at runtime via Ctrl+T /
@@ -141,15 +158,18 @@ def _pwsh(label: str, accent: str) -> list[str]:
     ]
 
 
-# Default stations. Edit / extend freely.
+# Default stations. Edit / extend freely. "accent" names a slot in THEMES
+# ("lcars-<accent>") rather than a literal color, so each pane's border/
+# header is resolved from -- and re-tinted to follow -- whichever palette
+# is currently active instead of staying stuck on TNG colors after Ctrl+T.
 DEFAULT_PANES = [
-    dict(id="pane-copilot", title="GITHUB COPILOT", command="powershell.exe -NoLogo -Command copilot", accent="#9999ff"),
-    dict(id="pane-pwsh", title="POWERSHELL", command=_pwsh("PWSH", "DarkYellow"), accent="#ff9c00"),
+    dict(id="pane-copilot", title="GITHUB COPILOT", command="powershell.exe -NoLogo -Command copilot", accent="lilac"),
+    dict(id="pane-pwsh", title="POWERSHELL", command=_pwsh("PWSH", "Gray"), accent="orange"),
 ]
 DEFAULT_TAB = DEFAULT_PANES[0]["id"]
 
 # The auxiliary station: hidden by default, toggled on/off via the AUX button.
-AUX_PANE = dict(id="pane-shell", title="AUX TERMINAL", command=_pwsh("AUX", "Cyan"), accent="#99ccff")
+AUX_PANE = dict(id="pane-shell", title="AUX TERMINAL", command=_pwsh("AUX", "DarkGray"), accent="blue")
 
 
 class NewPaneScreen(ModalScreen[str]):
@@ -278,6 +298,19 @@ class LcarsApp(App):
         variables.update(THEMES[self._theme_name])
         return variables
 
+    def _theme_color(self, accent_key: str) -> str:
+        """Resolve a semantic accent slot (e.g. "lilac") to its hex value
+        in the currently active theme."""
+        return THEMES[self._theme_name][f"lcars-{accent_key}"]
+
+    def _refresh_pane_colors(self) -> None:
+        """Re-tint every pane's border/header to the current theme's take
+        on its accent slot -- called whenever the theme changes so panes
+        don't stay stuck on whatever palette was active when created."""
+        for pane in self.query_one("#panes", Container).query(TerminalPane):
+            if pane.accent_key:
+                pane.set_accent_color(self._theme_color(pane.accent_key))
+
     def _display_text(self, text: str) -> str:
         """Apply the Klingon-theme "alien font" glyphs to `text` if active."""
         if self._theme_name == "klingon":
@@ -325,7 +358,8 @@ class LcarsApp(App):
                         yield TerminalPane(
                             spec["title"],
                             spec["command"],
-                            accent=spec["accent"],
+                            accent=self._theme_color(spec["accent"]),
+                            accent_key=spec["accent"],
                             cwd=START_DIR,
                             id=spec["id"],
                         )
@@ -344,17 +378,22 @@ class LcarsApp(App):
     @work(thread=True, exclusive=True)
     def _fetch_weather(self) -> None:
         """Fetch a compact local forecast from wttr.in for the upper-left
-        elbow block. Runs off the UI thread; any failure (no network, DNS,
-        timeout, etc.) just blanks the block rather than raising."""
+        elbow block, using the current theme's custom format string (see
+        WEATHER_FORMATS). Runs off the UI thread; any failure (no network,
+        DNS, timeout, etc.) just blanks the block rather than raising."""
+        fmt = WEATHER_FORMATS[self._theme_name]
+        url = f"https://wttr.in/?format={fmt}&m"
         try:
-            with urllib.request.urlopen(WEATHER_URL, timeout=3) as resp:
+            with urllib.request.urlopen(url, timeout=3) as resp:
                 text = resp.read().decode("utf-8", "replace").strip()
         except Exception:
             text = ""
+        if self._theme_name == "klingon":
+            text = text.upper()
         self.call_from_thread(self._set_weather, text)
 
     def _set_weather(self, text: str) -> None:
-        self.query_one("#elbow-top", Static).update(text)
+        self.query_one("#elbow-top", Static).update(self._display_text(text))
 
     def _tick(self) -> None:
         stamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
@@ -452,7 +491,8 @@ class LcarsApp(App):
             pane = TerminalPane(
                 AUX_PANE["title"],
                 AUX_PANE["command"],
-                accent=AUX_PANE["accent"],
+                accent=self._theme_color(AUX_PANE["accent"]),
+                accent_key=AUX_PANE["accent"],
                 cwd=START_DIR,
                 id=AUX_PANE["id"],
                 closable=True,
@@ -494,7 +534,8 @@ class LcarsApp(App):
             panes = self.query_one("#panes", Container)
             pane_id = f"pane-extra-{index}"
             pane = TerminalPane(
-                f"STATION {index}", command, accent="#cc6666", cwd=START_DIR, id=pane_id, closable=True
+                f"STATION {index}", command, accent=self._theme_color("red"), accent_key="red",
+                cwd=START_DIR, id=pane_id, closable=True
             )
             await panes.mount(pane)
             pane.set_displayed_title(self._display_text(pane.title_text))
@@ -533,6 +574,11 @@ class LcarsApp(App):
         self._theme_name = THEME_ORDER[(index + 1) % len(THEME_ORDER)]
         self.refresh_css(animate=False)
         self._refresh_titles()
+        self._refresh_pane_colors()
+        # Each theme has its own wttr.in format (see WEATHER_FORMATS), so
+        # re-fetch immediately instead of waiting for the next scheduled
+        # WEATHER_REFRESH_SECS tick to pick it up.
+        self._fetch_weather()
 
     def action_show_help(self) -> None:
         self.push_screen(HelpScreen())

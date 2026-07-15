@@ -4,7 +4,7 @@
 # theme instead of the user's everyday shell.
 param(
     [string]$Label = "PWSH",
-    [ConsoleColor]$Accent = [ConsoleColor]::DarkYellow
+    [ConsoleColor]$Accent = [ConsoleColor]::Gray
 )
 
 function global:prompt {
