@@ -120,11 +120,6 @@ class TerminalPane(Vertical):
         return self.query_one(Terminal)
 
     def set_displayed_title(self, text: str) -> None:
-        """Update the header's rendered text without touching title_text.
-
-        Lets the app swap in a re-styled version of the title (e.g. the
-        Klingon-theme "alien font" glyphs) while keeping the original
-        title_text around to restore when the theme changes back.
-        """
+        """Update the header's rendered text without touching title_text."""
         self.query_one(PaneHeader).update(text)
 

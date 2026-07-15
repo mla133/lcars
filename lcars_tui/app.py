@@ -16,22 +16,17 @@ from textual.css.query import NoMatches
 from textual.screen import ModalScreen
 from textual.widgets import Button, Input, Static
 
-# Compact single-line local forecast (auto-located by wttr.in via IP), e.g.
-# "\u2601\ufe0f +14\u00b0C". format=1 keeps it short enough for the sidebar's
-# elbow block; a short timeout means a dead/absent network just leaves the
-# block blank instead of hanging the UI.
-# Compact single-line ****** forecast (auto-located by wttr.in via IP) shown
-# in the upper-left elbow block. Each theme gets its own wttr.in custom
-# %-format string (https://wttr.in/:help) so the readout's *content*, not
-# just its color, matches the active console's personality -- not just a
-# reskin: TNG shows the friendly icon+temp glimpse a Starfleet console
-# would; DS9's is a station-ops temp+humidity reading; Klingon's is a terse
-# ALL-CAPS text-only condition+temp (no cutesy emoji on a warship, and run
-# through the alien-font glyph set below); Romulan's is a cold-empire
-# temp+wind reading. "&m" forces metric (Celsius) units everywhere so
-# switching themes doesn't also change the temperature scale. A short
-# per-request timeout means a dead/absent network just leaves the block
-# blank instead of hanging the UI.
+# Compact single-line weather forecast (auto-located by wttr.in via IP)
+# shown in the upper-left elbow block. Each theme gets its own wttr.in
+# custom %-format string (https://wttr.in/:help) so the readout content,
+# not just its color, matches the active console's personality: TNG shows
+# the friendly icon+temp glimpse a Starfleet console would; DS9's is a
+# station-ops temp+humidity reading; Klingon's is a terse ALL-CAPS
+# text-only condition+temp (no cutesy emoji on a warship); Romulan's is a
+# cold-empire temp+wind reading. "&m" forces metric (Celsius) units
+# everywhere so switching themes doesn't also change the temperature
+# scale. A short per-request timeout means a dead/absent network just
+# leaves the block blank instead of hanging the UI.
 WEATHER_FORMATS: dict[str, str] = {
     "tng": "%c+%t",       # e.g. "\u2601\ufe0f +14\u00b0C"
     "ds9": "%t+%h",       # e.g. "+14\u00b0C 62%"
@@ -94,32 +89,6 @@ THEMES: dict[str, dict[str, str]] = {
     },
 }
 THEME_ORDER = ("tng", "ds9", "klingon", "romulan")
-
-# Unicode "Mathematical Sans-Serif Bold Italic" letters -- a sharp, slanted,
-# aggressive-looking glyph set (closer to a warship-console/warrior feel
-# than plain upright bold) for every ASCII letter, plus "Sans-Serif Bold"
-# digits (that block has no italic digit glyphs). All render correctly in
-# any modern terminal font (no special Klingon/pIqaD font needs to be
-# installed). Used to give status bars and pane titles a different "font"
-# while the Klingon theme is active; see _stylize_text().
-_SANS_BOLD_ITALIC_UPPER_START = 0x1D63C  # 'A'
-_SANS_BOLD_ITALIC_LOWER_START = 0x1D656  # 'a'
-_SANS_BOLD_DIGIT_START = 0x1D7EC  # '0'
-
-
-def _stylize_text(text: str) -> str:
-    """Re-render `text` in the Klingon-theme "alien font" glyph set."""
-    out = []
-    for ch in text:
-        if "A" <= ch <= "Z":
-            out.append(chr(_SANS_BOLD_ITALIC_UPPER_START + (ord(ch) - ord("A"))))
-        elif "a" <= ch <= "z":
-            out.append(chr(_SANS_BOLD_ITALIC_LOWER_START + (ord(ch) - ord("a"))))
-        elif "0" <= ch <= "9":
-            out.append(chr(_SANS_BOLD_DIGIT_START + (ord(ch) - ord("0"))))
-        else:
-            out.append(ch)
-    return "".join(out)
 
 from .widgets.pane import TerminalPane
 from .widgets.terminal import Terminal
@@ -311,21 +280,23 @@ class LcarsApp(App):
             if pane.accent_key:
                 pane.set_accent_color(self._theme_color(pane.accent_key))
 
-    def _display_text(self, text: str) -> str:
-        """Apply the Klingon-theme "alien font" glyphs to `text` if active."""
-        if self._theme_name == "klingon":
-            return _stylize_text(text)
-        return text
-
     def _refresh_titles(self) -> None:
-        """Re-render the topbar and every pane's header to match the
-        current theme's font styling (plain ASCII, or Klingon glyphs)."""
+        """Re-render the topbar and every pane's header title (kept in sync
+        after panes are added/removed or the theme changes)."""
         try:
-            self.query_one("#topbar", Static).update(self._display_text(self.TITLE))
+            self.query_one("#topbar", Static).update(self.TITLE)
         except NoMatches:
             pass
         for pane in self.query_one("#panes", Container).query(TerminalPane):
-            pane.set_displayed_title(self._display_text(pane.title_text))
+            pane.set_displayed_title(pane.title_text)
+
+    def _refresh_theme_button(self) -> None:
+        """Show the active theme's name on the THEME button instead of a
+        static label, so the button itself reflects current state."""
+        try:
+            self.query_one("#toggle-theme", Button).label = self._theme_name.upper()
+        except NoMatches:
+            pass
 
     def compose(self) -> ComposeResult:
         with Horizontal(id="root"):
@@ -345,7 +316,7 @@ class LcarsApp(App):
                 with Container(classes="btn-shell btn-lilac"):
                     yield Button("CD", id="change-dir")
                 with Container(classes="btn-shell btn-yellow"):
-                    yield Button("THEME", id="toggle-theme")
+                    yield Button(self._theme_name.upper(), id="toggle-theme")
                 with Container(classes="btn-shell btn-blue"):
                     yield Button("HELP", id="show-help")
                 with Container(classes="btn-shell btn-red"):
@@ -393,11 +364,11 @@ class LcarsApp(App):
         self.call_from_thread(self._set_weather, text)
 
     def _set_weather(self, text: str) -> None:
-        self.query_one("#elbow-top", Static).update(self._display_text(text))
+        self.query_one("#elbow-top", Static).update(text)
 
     def _tick(self) -> None:
         stamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        self.query_one("#stardate-bar", Static).update(self._display_text(f"STARDATE {stamp}"))
+        self.query_one("#stardate-bar", Static).update(f"STARDATE {stamp}")
         self._update_cwd_bar()
         self._update_activity_indicator()
 
@@ -410,14 +381,14 @@ class LcarsApp(App):
             self.query_one("#cwd-bar", Static).update("")
             return
         cwd = active.terminal.cwd or os.getcwd()
-        self.query_one("#cwd-bar", Static).update(self._display_text(f"CWD: {cwd}"))
+        self.query_one("#cwd-bar", Static).update(f"CWD: {cwd}")
 
     def _update_activity_indicator(self) -> None:
         busy = self._busy_background_panes()
         indicator = self.query_one("#elbow-bottom", Static)
         indicator.set_class(bool(busy), "busy")
         if busy:
-            indicator.update(self._display_text(", ".join(busy)))
+            indicator.update(", ".join(busy))
             indicator.tooltip = f"WORKING: {', '.join(busy)}"
         else:
             indicator.update("\u25c9")
@@ -498,7 +469,7 @@ class LcarsApp(App):
                 closable=True,
             )
             await panes.mount(pane)
-            pane.set_displayed_title(self._display_text(pane.title_text))
+            pane.set_displayed_title(pane.title_text)
             self._activate(AUX_PANE["id"])
         else:
             if self._active_tab == AUX_PANE["id"]:
@@ -538,7 +509,7 @@ class LcarsApp(App):
                 cwd=START_DIR, id=pane_id, closable=True
             )
             await panes.mount(pane)
-            pane.set_displayed_title(self._display_text(pane.title_text))
+            pane.set_displayed_title(pane.title_text)
             self._activate(pane_id)
 
         self.push_screen(NewPaneScreen(), handle_result)
@@ -575,6 +546,7 @@ class LcarsApp(App):
         self.refresh_css(animate=False)
         self._refresh_titles()
         self._refresh_pane_colors()
+        self._refresh_theme_button()
         # Each theme has its own wttr.in format (see WEATHER_FORMATS), so
         # re-fetch immediately instead of waiting for the next scheduled
         # WEATHER_REFRESH_SECS tick to pick it up.
