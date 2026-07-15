@@ -43,6 +43,7 @@ class TerminalPane(Vertical):
         command: str | list[str],
         *,
         accent: str = "#ff9c00",
+        cwd: str | None = None,
         name: str | None = None,
         id: str | None = None,  # noqa: A002
         classes: str | None = None,
@@ -51,12 +52,13 @@ class TerminalPane(Vertical):
         self.title_text = title
         self.command = command
         self.accent = accent
+        self.cwd = cwd
 
     def compose(self) -> ComposeResult:
         header = PaneHeader(self.title_text)
         header.styles.background = self.accent
         yield header
-        yield Terminal(self.command, id=f"{self.id}-term")
+        yield Terminal(self.command, cwd=self.cwd, id=f"{self.id}-term")
 
     def on_mount(self) -> None:
         self.styles.border = ("round", self.accent)

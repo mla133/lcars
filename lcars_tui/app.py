@@ -4,6 +4,7 @@ other console program side by side, Star-Trek-console fashion.
 
 from __future__ import annotations
 
+import os
 import urllib.request
 from datetime import datetime
 from pathlib import Path
@@ -27,6 +28,15 @@ from .widgets.terminal import Terminal
 
 CSS_PATH = Path(__file__).parent / "lcars.tcss"
 PROMPT_SCRIPT = Path(__file__).parent / "assets" / "lcars_prompt.ps1"
+
+# Working directory panes' shells/CLIs are launched in. Defaults to whatever
+# directory the process itself was started from (e.g. the exe's own folder
+# when double-clicked from Explorer, which usually isn't where you want a
+# PowerShell/Copilot session to open) -- set LCARS_START_DIR (e.g. in a
+# desktop shortcut's "Target", or a wrapper script/profile) to override it,
+# so the built exe can always open into the same project directory
+# regardless of how or from where it's launched.
+START_DIR = os.environ.get("LCARS_START_DIR") or None
 
 
 def _pwsh(label: str, accent: str) -> list[str]:
@@ -125,7 +135,11 @@ class LcarsApp(App):
                 with Container(id="panes"):
                     for spec in DEFAULT_PANES:
                         yield TerminalPane(
-                            spec["title"], spec["command"], accent=spec["accent"], id=spec["id"]
+                            spec["title"],
+                            spec["command"],
+                            accent=spec["accent"],
+                            cwd=START_DIR,
+                            id=spec["id"],
                         )
                 yield Static(id="bottombar")
 
@@ -224,7 +238,11 @@ class LcarsApp(App):
             pane = panes.query_one(f"#{AUX_PANE['id']}", TerminalPane)
         except NoMatches:
             pane = TerminalPane(
-                AUX_PANE["title"], AUX_PANE["command"], accent=AUX_PANE["accent"], id=AUX_PANE["id"]
+                AUX_PANE["title"],
+                AUX_PANE["command"],
+                accent=AUX_PANE["accent"],
+                cwd=START_DIR,
+                id=AUX_PANE["id"],
             )
             await panes.mount(pane)
             self._activate(AUX_PANE["id"])
@@ -243,7 +261,9 @@ class LcarsApp(App):
             panes = self.query_one("#panes", Container)
             index = len(panes.children) + 1
             pane_id = f"pane-extra-{index}"
-            pane = TerminalPane(f"STATION {index}", command, accent="#cc6666", id=pane_id)
+            pane = TerminalPane(
+                f"STATION {index}", command, accent="#cc6666", cwd=START_DIR, id=pane_id
+            )
             panes.mount(pane)
             self._activate(pane_id)
 

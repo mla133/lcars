@@ -98,6 +98,30 @@ $s.IconLocation = "$($s.TargetPath),0"
 $s.Save()
 ```
 
+### Starting panes in a particular directory
+
+By default, PowerShell/Copilot panes open wherever the process itself was
+started from -- for a double-clicked exe (or a plain shortcut) that's the
+exe's own folder (`dist\lcars\`), which usually isn't where you want to
+work. Set the `LCARS_START_DIR` environment variable to override it; every
+pane (including new ones from Ctrl+N and the AUX terminal) launches its
+shell in that directory instead.
+
+A `.lnk` shortcut can't set an environment variable directly, so either
+set it globally (`setx LCARS_START_DIR C:\path\to\project`, then re-log-in
+or start a new Explorer session) or point the shortcut at a one-line
+wrapper instead of `lcars.exe` directly:
+
+```powershell
+# launch-lcars.bat, next to (or pointing at) dist\lcars\lcars.exe
+@echo off
+set LCARS_START_DIR=C:\path\to\project
+start "" "C:\path\to\dist\lcars\lcars.exe"
+```
+
+Then make the Desktop shortcut's target `launch-lcars.bat` instead of
+`lcars.exe`.
+
 ## Customizing stations
 
 Edit `DEFAULT_PANES` (and `AUX_PANE`) in `lcars_tui/app.py` to change the

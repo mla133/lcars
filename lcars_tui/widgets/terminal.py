@@ -121,12 +121,14 @@ class Terminal(Widget, can_focus=True):
         self,
         command: str | list[str],
         *,
+        cwd: Optional[str] = None,
         name: Optional[str] = None,
         id: Optional[str] = None,  # noqa: A002
         classes: Optional[str] = None,
     ) -> None:
         super().__init__(name=name, id=id, classes=classes)
         self.command = command
+        self.cwd = cwd
         self._proc: Optional["PtyProcess"] = None
         self._screen = pyte.Screen(80, 24) if pyte else None
         self._stream = pyte.Stream(self._screen) if pyte else None
@@ -156,7 +158,9 @@ class Terminal(Widget, can_focus=True):
         self._screen.resize(rows, cols)
         self._line_cache = [Text()] * rows
         self._screen.dirty.update(range(rows))
-        self._proc = PtyProcess.spawn(self.command, dimensions=(rows, cols))
+        self._proc = PtyProcess.spawn(
+            self.command, dimensions=(rows, cols), cwd=self.cwd
+        )
         self._stopped.clear()
         self._reader_thread = threading.Thread(target=self._read_loop, daemon=True)
         self._reader_thread.start()
