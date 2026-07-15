@@ -361,13 +361,29 @@ class LcarsApp(App):
 
         self.push_screen(NewPaneScreen(), handle_result)
 
+    def _focused_terminal(self) -> Terminal | None:
+        """Return the Terminal that should be acted on by kill/restart/CD.
+
+        Prefers the actually-focused widget if it's a Terminal, but falls
+        back to the active tab's terminal -- pressing a sidebar Button (as
+        opposed to a keybinding) moves focus to that Button, which would
+        otherwise make these actions silently no-op.
+        """
+        if isinstance(self.focused, Terminal):
+            return self.focused
+        try:
+            pane = self.query_one("#panes", Container).query_one(f"#{self._active_tab}", TerminalPane)
+        except NoMatches:
+            return None
+        return pane.terminal
+
     def action_kill_pane(self) -> None:
-        terminal = self.focused if isinstance(self.focused, Terminal) else None
+        terminal = self._focused_terminal()
         if terminal is not None:
             terminal.stop()
 
     def action_restart_pane(self) -> None:
-        terminal = self.focused if isinstance(self.focused, Terminal) else None
+        terminal = self._focused_terminal()
         if terminal is not None:
             terminal.restart()
 
@@ -377,7 +393,7 @@ class LcarsApp(App):
         self.refresh_css(animate=False)
 
     def action_change_dir(self) -> None:
-        terminal = self.focused if isinstance(self.focused, Terminal) else None
+        terminal = self._focused_terminal()
         if terminal is None:
             return
 
