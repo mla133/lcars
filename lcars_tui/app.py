@@ -17,10 +17,12 @@ from .widgets.terminal import Terminal
 
 CSS_PATH = Path(__file__).parent / "lcars.tcss"
 
-# Default stations. Edit / extend freely.
+# Default stations. Edit / extend freely. Order matters: the grid fills
+# left-to-right, top-to-bottom, and the first pane spans the full height
+# (see #pane-copilot in lcars.tcss).
 DEFAULT_PANES = [
-    dict(id="pane-pwsh", title="POWERSHELL", command="powershell.exe -NoLogo", accent="#ff9c00"),
     dict(id="pane-copilot", title="GITHUB COPILOT", command="powershell.exe -NoLogo -Command copilot", accent="#9999ff"),
+    dict(id="pane-pwsh", title="POWERSHELL", command="powershell.exe -NoLogo", accent="#ff9c00"),
     dict(id="pane-shell", title="AUX TERMINAL", command="powershell.exe -NoLogo", accent="#99ccff"),
 ]
 
@@ -95,7 +97,7 @@ class LcarsApp(App):
     def on_button_pressed(self, event: Button.Pressed) -> None:
         button_id = event.button.id or ""
         if button_id == "quit":
-            self.action_quit()
+            self.exit()
         elif button_id == "new-pane":
             self.action_new_pane()
         elif button_id == "kill-pane":

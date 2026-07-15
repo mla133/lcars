@@ -19,7 +19,7 @@ Screen {
 
 /* ---- sidebar (the classic LCARS vertical "elbow" column) -------- */
 #sidebar {
-    width: 16;
+    width: 11;
     height: 1fr;
     background: $lcars-black;
     padding: 0 1 0 0;
@@ -30,6 +30,7 @@ Screen {
     width: 1fr;
     background: $lcars-orange;
     color: $lcars-black;
+    border: round $lcars-orange;
 }
 
 #elbow-bottom {
@@ -37,23 +38,24 @@ Screen {
     width: 1fr;
     background: $lcars-orange;
     color: $lcars-black;
+    border: round $lcars-orange;
 }
 
 #sidebar Button {
     width: 1fr;
     height: 3;
     margin: 0 0 1 0;
-    border: none;
+    border: round;
     text-style: bold;
     content-align: right middle;
     padding: 0 2 0 0;
 }
 
-.btn-orange { background: $lcars-orange; color: $lcars-black; }
-.btn-lilac  { background: $lcars-lilac;  color: $lcars-black; }
-.btn-blue   { background: $lcars-blue;   color: $lcars-black; }
-.btn-red    { background: $lcars-red;    color: $lcars-black; }
-.btn-yellow { background: $lcars-yellow; color: $lcars-black; }
+.btn-orange { background: $lcars-orange; color: $lcars-black; border: round $lcars-orange; }
+.btn-lilac  { background: $lcars-lilac;  color: $lcars-black; border: round $lcars-lilac; }
+.btn-blue   { background: $lcars-blue;   color: $lcars-black; border: round $lcars-blue; }
+.btn-red    { background: $lcars-red;    color: $lcars-black; border: round $lcars-red; }
+.btn-yellow { background: $lcars-yellow; color: $lcars-black; border: round $lcars-yellow; }
 
 #sidebar-spacer {
     height: 1fr;
@@ -94,7 +96,7 @@ Screen {
     background: $lcars-black;
 }
 
-#pane-pwsh {
+#pane-copilot {
     row-span: 2;
 }
 
@@ -107,7 +109,7 @@ NewPaneScreen {
     width: 60;
     height: auto;
     background: $lcars-black;
-    border: heavy $lcars-orange;
+    border: round $lcars-orange;
     padding: 1 2;
 }
 

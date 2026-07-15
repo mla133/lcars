@@ -32,6 +32,8 @@ class TerminalPane(Vertical):
     TerminalPane {
         width: 1fr;
         height: 1fr;
+        border: round #666666;
+        padding: 0 1;
     }
     """
 
@@ -55,6 +57,9 @@ class TerminalPane(Vertical):
         header.styles.background = self.accent
         yield header
         yield Terminal(self.command, id=f"{self.id}-term")
+
+    def on_mount(self) -> None:
+        self.styles.border = ("round", self.accent)
 
     @property
     def terminal(self) -> Terminal:
