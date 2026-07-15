@@ -81,7 +81,9 @@ _KEY_MAP = {
 # *not* forwarded to the child process, so they bubble up to the App's
 # BINDINGS instead. Kept to an uncommon, small set so we don't clobber
 # shell/editor keybindings (e.g. Ctrl+R for PSReadLine reverse search).
-RESERVED_APP_KEYS = frozenset({"ctrl+1", "ctrl+2", "ctrl+3", "ctrl+4", "ctrl+q"})
+RESERVED_APP_KEYS = frozenset(
+    {"ctrl+1", "ctrl+2", "ctrl+3", "ctrl+4", "ctrl+q", "ctrl+n", "ctrl+k", "ctrl+r"}
+)
 
 
 class Terminal(Widget, can_focus=True):
