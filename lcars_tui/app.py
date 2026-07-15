@@ -9,7 +9,7 @@ import urllib.request
 from datetime import datetime
 from pathlib import Path
 
-from textual import work
+from textual import events, work
 from textual.app import App, ComposeResult
 from textual.containers import Container, Horizontal, Vertical
 from textual.css.query import NoMatches
@@ -154,6 +154,48 @@ class ChangeDirScreen(ModalScreen[str]):
         self.dismiss(event.value.strip() or None)
 
 
+class HelpScreen(ModalScreen[None]):
+    """Modal listing every keybinding, global and per-pane."""
+
+    HELP_TEXT = """\
+GLOBAL
+  Ctrl+1 / Ctrl+2            Switch to Copilot / PowerShell tab
+  Ctrl+3                     Toggle the AUX terminal
+  Ctrl+N                     Open a new station (prompts for a command)
+  Ctrl+K                     Kill the focused pane's process
+  Ctrl+R                     Restart the focused pane's process
+  Ctrl+G                     Change directory of the focused pane
+  Ctrl+T                     Toggle color theme (TNG / DS9)
+  F1                         Show this help
+  Ctrl+Q                     Quit
+
+STATIONS (AUX / extra "STATION N" panes)
+  Click the \u2715 in a station's header, or toggle AUX off,
+  to close it and stop its process.
+
+INSIDE A TERMINAL PANE
+  Ctrl+F                     Search scrollback (Enter again: previous match)
+  Shift+PageUp / PageDown    Scroll scrollback by a page
+  Ctrl+Home / Ctrl+End       Jump to top / bottom of scrollback
+  Mouse wheel                Scroll scrollback
+  Click + drag, then Ctrl+C  Select text, then copy it
+  Ctrl+V (into this console) Paste into the focused pane
+  Typing any key             Snaps back to the live view
+"""
+
+    def compose(self) -> ComposeResult:
+        with Vertical(id="help-dialog"):
+            yield Static("KEYBOARD SHORTCUTS", classes="help-title")
+            yield Static(self.HELP_TEXT)
+            yield Button("CLOSE", id="close", variant="success")
+
+    def on_button_pressed(self, event: Button.Pressed) -> None:
+        self.dismiss(None)
+
+    def on_key(self, event: events.Key) -> None:
+        self.dismiss(None)
+
+
 class LcarsApp(App):
     """The main LCARS console application."""
 
@@ -168,6 +210,7 @@ class LcarsApp(App):
         ("ctrl+r", "restart_pane", "Restart focused pane"),
         ("ctrl+g", "change_dir", "Change dir of focused pane"),
         ("ctrl+t", "toggle_theme", "Toggle color theme"),
+        ("f1", "show_help", "Help"),
         ("ctrl+q", "quit", "Quit"),
     ]
 
@@ -175,6 +218,10 @@ class LcarsApp(App):
         self._theme_name = "tng"
         super().__init__(*args, **kwargs)
         self._active_tab: str | None = None
+        # Monotonically increasing so ids stay unique even after closing
+        # some "STATION N" panes -- reusing len(children) here would risk
+        # colliding with an existing pane's id.
+        self._extra_pane_count = 0
 
     def get_css_variables(self) -> dict[str, str]:
         variables = super().get_css_variables()
@@ -200,6 +247,8 @@ class LcarsApp(App):
                     yield Button("CD", id="change-dir")
                 with Container(classes="btn-shell btn-yellow"):
                     yield Button("THEME", id="toggle-theme")
+                with Container(classes="btn-shell btn-blue"):
+                    yield Button("HELP", id="show-help")
                 with Container(classes="btn-shell btn-red"):
                     yield Button("QUIT", id="quit")
                 yield Static("\u25c9", id="elbow-bottom")
@@ -319,8 +368,12 @@ class LcarsApp(App):
             self.action_change_dir()
         elif button_id == "toggle-theme":
             self.action_toggle_theme()
+        elif button_id == "show-help":
+            self.action_show_help()
         elif button_id == "toggle-aux":
             await self.action_toggle_aux()
+        elif button_id.startswith("close-"):
+            await self._close_pane(button_id.removeprefix("close-"))
         elif button_id.startswith("tab-"):
             self._activate(button_id.removeprefix("tab-"))
 
@@ -335,28 +388,47 @@ class LcarsApp(App):
                 accent=AUX_PANE["accent"],
                 cwd=START_DIR,
                 id=AUX_PANE["id"],
+                closable=True,
             )
             await panes.mount(pane)
             self._activate(AUX_PANE["id"])
         else:
             if self._active_tab == AUX_PANE["id"]:
-                pane.terminal.stop()
-                await pane.remove()
-                self._activate(DEFAULT_TAB)
+                await self._close_pane(AUX_PANE["id"])
             else:
                 self._activate(AUX_PANE["id"])
 
+    async def _close_pane(self, pane_id: str) -> None:
+        """Stop and unmount a closable pane (AUX or an extra "STATION N").
+
+        The two default stations (Copilot / PowerShell) are never closable
+        -- this just bells rather than doing anything if asked to close one.
+        """
+        panes = self.query_one("#panes", Container)
+        try:
+            pane = panes.query_one(f"#{pane_id}", TerminalPane)
+        except NoMatches:
+            return
+        if not pane.closable:
+            self.bell()
+            return
+        pane.terminal.stop()
+        await pane.remove()
+        if self._active_tab == pane_id:
+            self._activate(DEFAULT_TAB)
+
     def action_new_pane(self) -> None:
-        def handle_result(command: str | None) -> None:
+        async def handle_result(command: str | None) -> None:
             if not command:
                 return
+            self._extra_pane_count += 1
+            index = self._extra_pane_count
             panes = self.query_one("#panes", Container)
-            index = len(panes.children) + 1
             pane_id = f"pane-extra-{index}"
             pane = TerminalPane(
-                f"STATION {index}", command, accent="#cc6666", cwd=START_DIR, id=pane_id
+                f"STATION {index}", command, accent="#cc6666", cwd=START_DIR, id=pane_id, closable=True
             )
-            panes.mount(pane)
+            await panes.mount(pane)
             self._activate(pane_id)
 
         self.push_screen(NewPaneScreen(), handle_result)
@@ -391,6 +463,9 @@ class LcarsApp(App):
         index = THEME_ORDER.index(self._theme_name)
         self._theme_name = THEME_ORDER[(index + 1) % len(THEME_ORDER)]
         self.refresh_css(animate=False)
+
+    def action_show_help(self) -> None:
+        self.push_screen(HelpScreen())
 
     def action_change_dir(self) -> None:
         terminal = self._focused_terminal()

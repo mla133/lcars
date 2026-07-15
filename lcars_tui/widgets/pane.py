@@ -4,8 +4,8 @@ interactive terminal below it."""
 from __future__ import annotations
 
 from textual.app import ComposeResult
-from textual.containers import Vertical
-from textual.widgets import Static
+from textual.containers import Horizontal, Vertical
+from textual.widgets import Button, Static
 
 from .terminal import Terminal
 
@@ -15,12 +15,29 @@ class PaneHeader(Static):
 
     DEFAULT_CSS = """
     PaneHeader {
-        height: 1;
         width: 1fr;
+        height: 1;
         color: #000000;
         text-style: bold;
         padding: 0 1;
         content-align: left middle;
+    }
+    """
+
+
+class ClosePaneButton(Button):
+    """Small "X" button shown in the header of closable stations."""
+
+    DEFAULT_CSS = """
+    ClosePaneButton {
+        width: 3;
+        min-width: 3;
+        height: 1;
+        border: none;
+        color: #000000;
+        text-style: bold;
+        padding: 0;
+        content-align: center middle;
     }
     """
 
@@ -35,6 +52,11 @@ class TerminalPane(Vertical):
         border: round #666666;
         padding: 0 1;
     }
+
+    TerminalPane .pane-header-row {
+        height: 1;
+        width: 1fr;
+    }
     """
 
     def __init__(
@@ -47,17 +69,26 @@ class TerminalPane(Vertical):
         name: str | None = None,
         id: str | None = None,  # noqa: A002
         classes: str | None = None,
+        closable: bool = False,
     ) -> None:
         super().__init__(name=name, id=id, classes=classes)
         self.title_text = title
         self.command = command
         self.accent = accent
         self.cwd = cwd
+        self.closable = closable
 
     def compose(self) -> ComposeResult:
         header = PaneHeader(self.title_text)
         header.styles.background = self.accent
-        yield header
+        if self.closable:
+            with Horizontal(classes="pane-header-row"):
+                yield header
+                close_btn = ClosePaneButton("\u2715", id=f"close-{self.id}")
+                close_btn.styles.background = self.accent
+                yield close_btn
+        else:
+            yield header
         yield Terminal(self.command, cwd=self.cwd, id=f"{self.id}-term")
 
     def on_mount(self) -> None:
@@ -66,3 +97,4 @@ class TerminalPane(Vertical):
     @property
     def terminal(self) -> Terminal:
         return self.query_one(Terminal)
+

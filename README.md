@@ -49,8 +49,25 @@ python -m venv .venv
   bars, and elbows all at once -- add a new palette there (and to
   `THEME_ORDER`) to add more themes.
 - `Ctrl+Q` — quit (also available via the `QUIT` sidebar button).
+- `F1` — show a help screen listing every keybinding (also available via the
+  `HELP` sidebar button). Dismiss with any key or its button.
 - Click into any pane and type normally — keystrokes are forwarded to the
   real console process running inside it.
+- **Scrollback** — scroll a pane's history with the mouse wheel,
+  `Shift+PageUp` / `Shift+PageDown`, or jump to the ends with `Ctrl+Home` /
+  `Ctrl+End`. A status footer shows your position; typing any key snaps
+  back to the live view.
+- **Search** — `Ctrl+F` opens a search box for the focused pane's
+  scrollback; press it again (or re-enter the same term) to cycle to older
+  matches, wrapping around once you reach the top.
+- **Copy/paste** — click-drag to select text in a pane and press `Ctrl+C`
+  to copy it (Textual's built-in selection/clipboard support, via OSC52).
+  Pasting into the outer terminal hosting the app writes the pasted text
+  straight into the focused pane's process.
+- **Closable panes** — `AUX` and any pane created via `Ctrl+N` ("STATION
+  N") show a small `✕` button in their header to stop the process and
+  close the tab, falling back to the `COPILOT` tab if it was active. The
+  default `COPILOT` / `PWSH` panes cannot be closed.
 
 ## LCARS prompt
 

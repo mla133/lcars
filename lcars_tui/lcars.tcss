@@ -177,3 +177,33 @@ NewPaneScreen {
     color: $lcars-orange;
     text-style: bold;
 }
+
+/* ---- terminal scrollback search modal --------------------------- */
+TerminalSearchScreen {
+    align: center middle;
+}
+
+/* ---- help modal --------------------------------------------------- */
+HelpScreen {
+    align: center middle;
+}
+
+#help-dialog {
+    width: 74;
+    height: auto;
+    max-height: 90%;
+    background: $lcars-black;
+    border: round $lcars-orange;
+    padding: 1 2;
+}
+
+#help-dialog .help-title {
+    color: $lcars-orange;
+    text-style: bold;
+}
+
+#help-dialog Button {
+    margin-top: 1;
+    width: 100%;
+}
+
