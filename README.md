@@ -49,6 +49,10 @@ python -m venv .venv
   bars, and elbows all at once -- add a new palette there (and to
   `THEME_ORDER`) to add more themes.
 - `Ctrl+Q` — quit (also available via the `QUIT` sidebar button).
+- `Ctrl+B` — open a dialog to show/hide individual sidebar buttons (also
+  available via the `CFG` sidebar button). Hidden buttons are just visually
+  removed from the sidebar; their keybindings still work, and the `CFG`
+  button itself can't be hidden so you can always get back in.
 - `F1` — show a help screen listing every keybinding (also available via the
   `HELP` sidebar button). Dismiss with any key or its button.
 - Click into any pane and type normally — keystrokes are forwarded to the

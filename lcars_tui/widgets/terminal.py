@@ -105,6 +105,7 @@ RESERVED_APP_KEYS = frozenset(
         "ctrl+r",
         "ctrl+g",
         "ctrl+t",
+        "ctrl+b",
         "f1",
     }
 )
@@ -141,6 +142,11 @@ class TerminalSearchScreen(ModalScreen[str]):
 
     def on_input_submitted(self, event: Input.Submitted) -> None:
         self.dismiss(event.value.strip() or None)
+
+    def on_key(self, event: events.Key) -> None:
+        if event.key == "escape":
+            event.stop()
+            self.dismiss(None)
 
 
 class Terminal(Widget, can_focus=True):

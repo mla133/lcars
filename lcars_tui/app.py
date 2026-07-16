@@ -11,10 +11,10 @@ from pathlib import Path
 
 from textual import events, work
 from textual.app import App, ComposeResult
-from textual.containers import Container, Horizontal, Vertical
+from textual.containers import Container, Horizontal, Vertical, VerticalScroll
 from textual.css.query import NoMatches
 from textual.screen import ModalScreen
-from textual.widgets import Button, Input, Static
+from textual.widgets import Button, Checkbox, Input, Static
 
 # Compact single-line weather forecast (auto-located by wttr.in via IP)
 # shown in the upper-left elbow block. Each theme gets its own wttr.in
@@ -151,6 +151,31 @@ DEFAULT_TAB = DEFAULT_PANES[0]["id"]
 # The auxiliary station: hidden by default, toggled on/off via the AUX button.
 AUX_PANE = dict(id="pane-shell", title="AUX TERMINAL", command=_pwsh("AUX", "DarkGray"), accent="blue")
 
+# Every toggleable sidebar button, grouped "top" (above the spacer) or
+# "bottom" (below it) so compose() can rebuild the same layout while letting
+# SidebarConfigScreen show/hide any of them individually. "label" is a
+# static button caption; entries whose caption changes at runtime (THEME)
+# use "config_label" for what the config dialog shows instead. The CFG
+# button itself (which opens that dialog) is deliberately left out of this
+# list -- it's always visible, otherwise a user could hide their only way
+# back in.
+SIDEBAR_BUTTONS = [
+    dict(id="tab-pane-copilot", group="top", label="COPILOT", accent="lilac"),
+    dict(id="tab-pane-pwsh", group="top", label="PWSH", accent="orange"),
+    dict(id="toggle-aux", group="top", label="AUX", accent="blue"),
+    dict(id="new-pane", group="bottom", label="RUN", accent="green"),
+    dict(id="kill-pane", group="bottom", label="KILL", accent="orange"),
+    dict(id="change-dir", group="bottom", label="CWD", accent="lilac"),
+    dict(id="toggle-theme", group="bottom", label=None, config_label="THEME", accent="yellow"),
+    dict(id="show-help", group="bottom-2", label="HELP", accent="blue"),
+    dict(id="quit", group="bottom-2", label="QUIT", accent="red"),
+]
+
+# These sidebar buttons stay hidden on launch; the user opts into them via
+# the sidebar config dialog (Ctrl+B / CFG button) once they actually want an
+# AUX terminal or ad-hoc stations.
+STARTUP_HIDDEN_BUTTONS = {"toggle-aux", "new-pane", "kill-pane"}
+
 
 class NewPaneScreen(ModalScreen[str]):
     """Modal dialog asking for a shell command to launch in a new pane."""
@@ -172,6 +197,11 @@ class NewPaneScreen(ModalScreen[str]):
 
     def on_input_submitted(self, event: Input.Submitted) -> None:
         self.dismiss(event.value.strip() or None)
+
+    def on_key(self, event: events.Key) -> None:
+        if event.key == "escape":
+            event.stop()
+            self.dismiss(None)
 
 
 class ChangeDirScreen(ModalScreen[str]):
@@ -203,6 +233,11 @@ class ChangeDirScreen(ModalScreen[str]):
     def on_input_submitted(self, event: Input.Submitted) -> None:
         self.dismiss(event.value.strip() or None)
 
+    def on_key(self, event: events.Key) -> None:
+        if event.key == "escape":
+            event.stop()
+            self.dismiss(None)
+
 
 class HelpScreen(ModalScreen[None]):
     """Modal listing every keybinding, global and per-pane."""
@@ -216,6 +251,7 @@ GLOBAL
   Ctrl+R                     Restart the focused pane's process
   Ctrl+G                     Change directory of the focused pane
   Ctrl+T                     Toggle color theme (TNG / DS9 / Klingon / Romulan)
+  Ctrl+B                     Show/hide individual sidebar buttons
   F1                         Show this help
   Ctrl+Q                     Quit
 
@@ -246,6 +282,54 @@ INSIDE A TERMINAL PANE
         self.dismiss(None)
 
 
+class SidebarConfigScreen(ModalScreen[set[str] | None]):
+    """Modal letting the user show/hide any sidebar button individually.
+
+    Returns the new set of hidden button ids on save, or None on cancel.
+    """
+
+    def __init__(self, hidden: set[str]) -> None:
+        super().__init__()
+        self._hidden = hidden
+
+    def compose(self) -> ComposeResult:
+        with Vertical(id="sidebar-config-dialog"):
+            yield Static("SIDEBAR BUTTONS", classes="config-title")
+            # Checkboxes live in their own scrollable region so the SAVE/CANCEL
+            # row below always stays reachable even on a short terminal where
+            # the full list wouldn't otherwise fit within max-height.
+            with VerticalScroll(id="sidebar-config-checkboxes"):
+                for spec in SIDEBAR_BUTTONS:
+                    label = spec.get("config_label") or spec["label"]
+                    yield Checkbox(
+                        label,
+                        value=spec["id"] not in self._hidden,
+                        id=f"cfg-{spec['id']}",
+                    )
+            with Horizontal():
+                yield Button("SAVE", id="save", variant="success")
+                yield Button("CANCEL", id="cancel", variant="error")
+
+    def on_button_pressed(self, event: Button.Pressed) -> None:
+        if event.button.id == "save":
+            hidden = {
+                spec["id"]
+                for spec in SIDEBAR_BUTTONS
+                if not self.query_one(f"#cfg-{spec['id']}", Checkbox).value
+            }
+            self.dismiss(hidden)
+        else:
+            self.dismiss(None)
+
+    def on_key(self, event: events.Key) -> None:
+        # Escape always cancels, regardless of which checkbox/button has
+        # focus -- previously there was no keyboard way to close this dialog
+        # if the mouse couldn't reach the SAVE/CANCEL row.
+        if event.key == "escape":
+            event.stop()
+            self.dismiss(None)
+
+
 class LcarsApp(App):
     """The main LCARS console application."""
 
@@ -260,6 +344,7 @@ class LcarsApp(App):
         ("ctrl+r", "restart_pane", "Restart focused pane"),
         ("ctrl+g", "change_dir", "Change dir of focused pane"),
         ("ctrl+t", "toggle_theme", "Toggle color theme"),
+        ("ctrl+b", "show_sidebar_config", "Sidebar buttons"),
         ("f1", "show_help", "Help"),
         ("ctrl+q", "quit", "Quit"),
     ]
@@ -272,6 +357,10 @@ class LcarsApp(App):
         # some "STATION N" panes -- reusing len(children) here would risk
         # colliding with an existing pane's id.
         self._extra_pane_count = 0
+        # ids of SIDEBAR_BUTTONS entries currently hidden by the user via
+        # the sidebar config dialog (Ctrl+B / CFG button). AUX/NEW/KILL start
+        # hidden on launch; the user opts them back in via that dialog.
+        self._hidden_sidebar_buttons: set[str] = set(STARTUP_HIDDEN_BUTTONS)
 
     def get_css_variables(self) -> dict[str, str]:
         variables = super().get_css_variables()
@@ -309,29 +398,62 @@ class LcarsApp(App):
         except NoMatches:
             pass
 
+    def _apply_sidebar_visibility(self) -> None:
+        """Hide/show each sidebar button's wrapping row per the user's
+        choices in SidebarConfigScreen (see self._hidden_sidebar_buttons)."""
+        for spec in SIDEBAR_BUTTONS:
+            try:
+                row = self.query_one(f"#row-{spec['id']}", Container)
+            except NoMatches:
+                continue
+            row.display = spec["id"] not in self._hidden_sidebar_buttons
+
+    def action_show_sidebar_config(self) -> None:
+        def handle_result(hidden: set[str] | None) -> None:
+            if hidden is None:
+                return
+            self._hidden_sidebar_buttons = hidden
+            self._apply_sidebar_visibility()
+
+        self.push_screen(SidebarConfigScreen(self._hidden_sidebar_buttons), handle_result)
+
     def compose(self) -> ComposeResult:
         with Horizontal(id="root"):
             with Vertical(id="sidebar"):
                 yield Static(id="elbow-top")
-                with Container(classes="btn-shell btn-lilac"):
-                    yield Button("COPILOT", id="tab-pane-copilot")
-                with Container(classes="btn-shell btn-orange"):
-                    yield Button("PWSH", id="tab-pane-pwsh")
-                with Container(classes="btn-shell btn-blue"):
-                    yield Button("AUX", id="toggle-aux")
+                for spec in SIDEBAR_BUTTONS:
+                    if spec["group"] != "top":
+                        continue
+                    label = spec["label"] or self._theme_name.upper()
+                    with Container(
+                        classes=f"btn-shell btn-{spec['accent']}",
+                        id=f"row-{spec['id']}",
+                    ) as row:
+                        row.display = spec["id"] not in self._hidden_sidebar_buttons
+                        yield Button(label, id=spec["id"])
                 yield Static(id="sidebar-spacer")
-                with Container(classes="btn-shell btn-green"):
-                    yield Button("NEW", id="new-pane")
-                with Container(classes="btn-shell btn-orange"):
-                    yield Button("KILL", id="kill-pane")
-                with Container(classes="btn-shell btn-lilac"):
-                    yield Button("CD", id="change-dir")
-                with Container(classes="btn-shell btn-yellow"):
-                    yield Button(self._theme_name.upper(), id="toggle-theme")
-                with Container(classes="btn-shell btn-blue"):
-                    yield Button("HELP", id="show-help")
-                with Container(classes="btn-shell btn-red"):
-                    yield Button("QUIT", id="quit")
+                for spec in SIDEBAR_BUTTONS:
+                    if spec["group"] != "bottom":
+                        continue
+                    label = spec["label"] or self._theme_name.upper()
+                    with Container(
+                        classes=f"btn-shell btn-{spec['accent']}",
+                        id=f"row-{spec['id']}",
+                    ) as row:
+                        row.display = spec["id"] not in self._hidden_sidebar_buttons
+                        yield Button(label, id=spec["id"])
+                with Container(classes="btn-shell btn-green", id="row-show-sidebar-config"):
+                    yield Button("CFG", id="show-sidebar-config")
+                for spec in SIDEBAR_BUTTONS:
+                    if spec["group"] != "bottom-2":
+                        continue
+                    label = spec["label"] or self._theme_name.upper()
+                    with Container(
+                        classes=f"btn-shell btn-{spec['accent']}",
+                        id=f"row-{spec['id']}",
+                    ) as row:
+                        row.display = spec["id"] not in self._hidden_sidebar_buttons
+                        yield Button(label, id=spec["id"])
                 yield Static("\u25c9", id="elbow-bottom")
             with Vertical(id="main"):
                 yield Static(self.TITLE, id="topbar")
@@ -354,6 +476,7 @@ class LcarsApp(App):
         self._tick()
         self._activate(DEFAULT_TAB)
         self._refresh_titles()
+        self._apply_sidebar_visibility()
         self.set_interval(WEATHER_REFRESH_SECS, self._fetch_weather)
         self._fetch_weather()
 
@@ -459,6 +582,8 @@ class LcarsApp(App):
             self.action_toggle_theme()
         elif button_id == "show-help":
             self.action_show_help()
+        elif button_id == "show-sidebar-config":
+            self.action_show_sidebar_config()
         elif button_id == "toggle-aux":
             await self.action_toggle_aux()
         elif button_id.startswith("close-"):

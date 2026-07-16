@@ -16,7 +16,7 @@ Screen {
 
 /* ---- sidebar (the classic LCARS vertical "elbow" column) -------- */
 #sidebar {
-    width: 14;
+    width: 13;
     height: 1fr;
     background: $lcars-black;
     padding: 0 1 0 0;
@@ -60,7 +60,7 @@ Screen {
     width: 1fr;
     min-width: 3;
     height: 3;
-    margin: 0 0 1 0;
+    margin: 0;
     background: $lcars-black;
     padding: 0;
 }
@@ -181,6 +181,47 @@ NewPaneScreen {
 /* ---- terminal scrollback search modal --------------------------- */
 TerminalSearchScreen {
     align: center middle;
+}
+
+/* ---- sidebar config modal ------------------------------------------ */
+SidebarConfigScreen {
+    align: center middle;
+}
+
+#sidebar-config-dialog {
+    width: 44;
+    height: auto;
+    max-height: 90%;
+    background: $lcars-black;
+    border: round $lcars-orange;
+    padding: 1 2;
+}
+
+#sidebar-config-dialog .config-title {
+    color: $lcars-orange;
+    text-style: bold;
+}
+
+/* Scrolls independently so the SAVE/CANCEL row below is always reachable,
+   even on a short terminal where the full checkbox list wouldn't fit. */
+#sidebar-config-checkboxes {
+    height: auto;
+    max-height: 16;
+    overflow-y: auto;
+}
+
+#sidebar-config-dialog Checkbox {
+    width: 100%;
+    margin: 0;
+}
+
+#sidebar-config-dialog Horizontal {
+    height: auto;
+}
+
+#sidebar-config-dialog Button {
+    margin-top: 1;
+    width: 100%;
 }
 
 /* ---- help modal --------------------------------------------------- */
