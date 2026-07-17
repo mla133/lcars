@@ -164,10 +164,75 @@ def _write_env_var(path: Path, key: str, value: str) -> None:
 # PowerShell/Copilot session to open). Resolution order: the LCARS_START_DIR
 # environment variable (e.g. set in a desktop shortcut's "Target", or a
 # wrapper script/profile), then LCARS_START_DIR in a .env file next to the
-# app (see _env_file_path()), then -- if neither is set -- a startup dialog
-# prompts for it (see LcarsApp._prompt_start_dir) and offers to save the
-# answer to .env for future launches.
+# app (see _env_file_path()), then -- if neither is set -- a native OS
+# folder-browser dialog (see _prompt_start_dir_native(), invoked from main()
+# before the Textual app starts) which offers to save the choice to .env for
+# future launches.
 START_DIR = os.environ.get("LCARS_START_DIR") or _read_env_file(_env_file_path()).get("LCARS_START_DIR") or None
+
+
+def _prompt_start_dir_native() -> str | None:
+    """Show a native OS folder-browser dialog (via tkinter) asking for the
+    starting working directory. Run from main(), before the Textual app
+    starts, so it appears as a normal desktop "Select Folder" dialog rather
+    than an in-TUI modal. Returns the chosen path, or None if the dialog is
+    unavailable or the user cancels it."""
+    try:
+        import tkinter
+        from tkinter import filedialog
+    except ImportError:
+        return None
+    try:
+        root = tkinter.Tk()
+        root.withdraw()
+        root.attributes("-topmost", True)
+        try:
+            chosen = filedialog.askdirectory(
+                title="LCARS: Select starting working directory",
+                initialdir=os.getcwd(),
+                mustexist=True,
+            )
+        finally:
+            root.destroy()
+    except tkinter.TclError:
+        return None
+    return chosen or None
+
+
+def _resolve_start_dir() -> None:
+    """Resolve the module-level START_DIR before the app starts: use it as-is
+    if already set (env var or .env), otherwise prompt with a native folder
+    dialog and, if a directory is chosen, offer (via a native yes/no dialog)
+    to remember it in .env for future launches."""
+    global START_DIR
+    if START_DIR:
+        return
+    chosen = _prompt_start_dir_native()
+    if not chosen:
+        return
+    expanded = os.path.expandvars(os.path.expanduser(chosen))
+    if not os.path.isdir(expanded):
+        return
+    save = False
+    try:
+        import tkinter
+        from tkinter import messagebox
+        root = tkinter.Tk()
+        root.withdraw()
+        root.attributes("-topmost", True)
+        try:
+            save = messagebox.askyesno(
+                "LCARS",
+                f"Use\n{expanded}\nas the default starting directory for future launches?",
+            )
+        finally:
+            root.destroy()
+    except Exception:
+        save = False
+    if save:
+        _write_env_var(_env_file_path(), "LCARS_START_DIR", expanded)
+    START_DIR = expanded
+    os.environ["LCARS_START_DIR"] = expanded
 
 
 def _pwsh(label: str, accent: str) -> list[str]:
@@ -290,67 +355,6 @@ class ChangeDirScreen(ModalScreen[str]):
         if event.key == "escape":
             event.stop()
             self.dismiss(None)
-
-
-class StartupDirScreen(ModalScreen[str | None]):
-    """Modal shown on launch, before any pane's shell is started, when
-    LCARS_START_DIR isn't set anywhere (not in the environment or .env),
-    asking which directory panes should start in."""
-
-    def compose(self) -> ComposeResult:
-        with Vertical(id="new-pane-dialog"):
-            yield Static("SET STARTING WORKING DIRECTORY")
-            yield Input(
-                value=os.getcwd(),
-                placeholder=r"e.g. C:\Users\you\projects\thing",
-                id="cwd-input",
-            )
-            with Horizontal():
-                yield Button("CONTINUE", id="launch", variant="success")
-                yield Button("SKIP", id="cancel", variant="error")
-
-    def _result(self) -> str:
-        return self.query_one("#cwd-input", Input).value.strip() or os.getcwd()
-
-    def on_button_pressed(self, event: Button.Pressed) -> None:
-        if event.button.id == "launch":
-            self.dismiss(self._result())
-        else:
-            self.dismiss(None)
-
-    def on_input_submitted(self, event: Input.Submitted) -> None:
-        self.dismiss(self._result())
-
-    def on_key(self, event: events.Key) -> None:
-        if event.key == "escape":
-            event.stop()
-            self.dismiss(None)
-
-
-class ConfirmStartDirScreen(ModalScreen[bool]):
-    """Follow-up modal confirming whether the just-chosen starting directory
-    should be remembered (saved to .env) as the default for future launches,
-    shown after StartupDirScreen and before any pane's shell is started."""
-
-    def __init__(self, path: str) -> None:
-        super().__init__()
-        self._path = path
-
-    def compose(self) -> ComposeResult:
-        with Vertical(id="new-pane-dialog"):
-            yield Static("USE AS DEFAULT STARTING DIRECTORY?")
-            yield Static(self._path, id="confirm-dir-path")
-            with Horizontal():
-                yield Button("YES, SAVE DEFAULT", id="save", variant="success")
-                yield Button("NO, JUST THIS TIME", id="skip", variant="warning")
-
-    def on_button_pressed(self, event: Button.Pressed) -> None:
-        self.dismiss(event.button.id == "save")
-
-    def on_key(self, event: events.Key) -> None:
-        if event.key == "escape":
-            event.stop()
-            self.dismiss(False)
 
 
 class HelpScreen(ModalScreen[None]):
@@ -579,11 +583,6 @@ class LcarsApp(App):
                             accent=self._theme_color(spec["accent"]),
                             accent_key=spec["accent"],
                             cwd=START_DIR,
-                            # Hold off spawning the shell process itself
-                            # until a starting directory is confirmed (see
-                            # on_mount/_prompt_start_dir) when none was
-                            # resolved from the environment or .env yet.
-                            autostart=bool(START_DIR),
                             id=spec["id"],
                         )
                 with Horizontal(id="bottombar"):
@@ -598,62 +597,6 @@ class LcarsApp(App):
         self._apply_sidebar_visibility()
         self.set_interval(WEATHER_REFRESH_SECS, self._fetch_weather)
         self._fetch_weather()
-        if not START_DIR:
-            self._prompt_start_dir()
-        else:
-            self._start_all_terminals()
-
-    def _prompt_start_dir(self) -> None:
-        """Ask for a starting working directory before any pane's shell is
-        started, when none was resolved from the environment or .env (see
-        START_DIR above). Panes are mounted (via compose()) but were built
-        with autostart=False, so nothing has launched a shell yet -- once a
-        directory is picked (and optionally confirmed as the new default),
-        _start_all_terminals() spawns every pane's process in it."""
-
-        def handle_dir(path: str | None) -> None:
-            if not path:
-                # Skipped: fall back to the current directory so the app
-                # doesn't start with panes stuck unstarted.
-                self._start_all_terminals()
-                return
-            expanded = os.path.expandvars(os.path.expanduser(path))
-            if not os.path.isdir(expanded):
-                self.bell()
-                self._prompt_start_dir()
-                return
-
-            def handle_confirm(save: bool) -> None:
-                self._apply_start_dir(expanded)
-                if save:
-                    _write_env_var(_env_file_path(), "LCARS_START_DIR", expanded)
-                self._start_all_terminals()
-
-            self.push_screen(ConfirmStartDirScreen(expanded), handle_confirm)
-
-        self.push_screen(StartupDirScreen(), handle_dir)
-
-    def _apply_start_dir(self, path: str) -> None:
-        """Set the resolved starting directory on every currently mounted
-        pane so its (still-unstarted or already-running) terminal uses it;
-        panes created afterwards (AUX, Ctrl+N stations) pick it up too since
-        they read the module-level START_DIR when launched."""
-        global START_DIR
-        START_DIR = path
-        os.environ["LCARS_START_DIR"] = path
-        for pane in self.query_one("#panes", Container).query(TerminalPane):
-            if pane.terminal.is_running:
-                pane.terminal.restart(cwd=path)
-            else:
-                pane.terminal.cwd = path
-        self._update_cwd_bar()
-
-    def _start_all_terminals(self) -> None:
-        """Spawn the shell process for every mounted pane that hasn't
-        started yet (used once a starting directory has been resolved,
-        whether from the environment/.env or the startup prompt)."""
-        for pane in self.query_one("#panes", Container).query(TerminalPane):
-            pane.terminal.start()
 
     @work(thread=True, exclusive=True)
     def _fetch_weather(self) -> None:
@@ -889,6 +832,11 @@ class LcarsApp(App):
 
 
 def main() -> None:
+    # Resolve the starting directory (env/.env, or a native folder-browser
+    # dialog) before the Textual app is even constructed, so panes always
+    # mount already knowing where to start and never need a delayed-start
+    # dance or an in-TUI prompt.
+    _resolve_start_dir()
     LcarsApp().run()
 
 

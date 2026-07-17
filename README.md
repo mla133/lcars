@@ -141,10 +141,10 @@ work. The working directory is resolved in this order:
 1. The `LCARS_START_DIR` environment variable, if set.
 2. `LCARS_START_DIR=...` in a `.env` file next to `lcars.exe` (next to the
    repo root when running from source).
-3. If neither is set, a startup dialog prompts for a directory *before*
-   any pane's shell starts, then asks you to confirm whether to save that
-   directory to `.env` as the default for future launches (choosing not
-   to save just uses it for this run).
+3. If neither is set, a native OS "Select Folder" dialog (not part of the
+   TUI) pops up *before* the app itself even starts, then a native yes/no
+   dialog asks whether to save that directory to `.env` as the default for
+   future launches (choosing not to save just uses it for this run).
 
 Every pane (including new ones from Ctrl+N and the AUX terminal) launches
 its shell in whichever directory is resolved.
@@ -162,8 +162,8 @@ start "" "C:\path\to\dist\lcars\lcars.exe"
 ```
 
 Then make the Desktop shortcut's target `launch-lcars.bat` instead of
-`lcars.exe`. Otherwise, just let the startup dialog save it to `.env` --
-no shortcut editing needed.
+`lcars.exe`. Otherwise, just let the startup folder dialog save it to
+`.env` -- no shortcut editing needed.
 
 To change directory from *inside* a running app (no restart of the whole
 app or shortcut editing needed), press `Ctrl+G` on a focused pane -- see
