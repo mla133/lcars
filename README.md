@@ -136,14 +136,22 @@ $s.Save()
 By default, PowerShell/Copilot panes open wherever the process itself was
 started from -- for a double-clicked exe (or a plain shortcut) that's the
 exe's own folder (`dist\lcars\`), which usually isn't where you want to
-work. Set the `LCARS_START_DIR` environment variable to override it; every
-pane (including new ones from Ctrl+N and the AUX terminal) launches its
-shell in that directory instead.
+work. The working directory is resolved in this order:
 
-A `.lnk` shortcut can't set an environment variable directly, so either
-set it globally (`setx LCARS_START_DIR C:\path\to\project`, then re-log-in
-or start a new Explorer session) or point the shortcut at a one-line
-wrapper instead of `lcars.exe` directly:
+1. The `LCARS_START_DIR` environment variable, if set.
+2. `LCARS_START_DIR=...` in a `.env` file next to `lcars.exe` (next to the
+   repo root when running from source).
+3. If neither is set, a startup dialog prompts for a directory the first
+   time you launch the app, with a checkbox to save your answer to `.env`
+   so you won't be asked again on future launches.
+
+Every pane (including new ones from Ctrl+N and the AUX terminal) launches
+its shell in whichever directory is resolved.
+
+A `.lnk` shortcut can't set an environment variable directly, so to use
+option 1 either set it globally (`setx LCARS_START_DIR C:\path\to\project`,
+then re-log-in or start a new Explorer session) or point the shortcut at a
+one-line wrapper instead of `lcars.exe` directly:
 
 ```powershell
 # launch-lcars.bat, next to (or pointing at) dist\lcars\lcars.exe
@@ -153,7 +161,8 @@ start "" "C:\path\to\dist\lcars\lcars.exe"
 ```
 
 Then make the Desktop shortcut's target `launch-lcars.bat` instead of
-`lcars.exe`.
+`lcars.exe`. Otherwise, just let the startup dialog save it to `.env` --
+no shortcut editing needed.
 
 To change directory from *inside* a running app (no restart of the whole
 app or shortcut editing needed), press `Ctrl+G` on a focused pane -- see

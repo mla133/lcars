@@ -5,6 +5,7 @@ other console program side by side, Star-Trek-console fashion.
 from __future__ import annotations
 
 import os
+import sys
 import urllib.request
 from datetime import datetime
 from pathlib import Path
@@ -107,14 +108,66 @@ from .widgets.terminal import Terminal
 CSS_PATH = Path(__file__).parent / "lcars.tcss"
 PROMPT_SCRIPT = Path(__file__).parent / "assets" / "lcars_prompt.ps1"
 
+def _env_file_path() -> Path:
+    """Location of the optional .env file used to remember settings (e.g.
+    LCARS_START_DIR) across launches -- next to lcars.exe in a frozen
+    (PyInstaller) build, or the repo root when running from source."""
+    if getattr(sys, "frozen", False):
+        base = Path(sys.executable).parent
+    else:
+        base = Path(__file__).parent.parent
+    return base / ".env"
+
+
+def _read_env_file(path: Path) -> dict[str, str]:
+    """Parse a simple KEY=VALUE .env file, ignoring blank lines and lines
+    starting with '#'. Missing/unreadable files just yield an empty dict."""
+    values: dict[str, str] = {}
+    try:
+        text = path.read_text(encoding="utf-8")
+    except OSError:
+        return values
+    for line in text.splitlines():
+        stripped = line.strip()
+        if not stripped or stripped.startswith("#") or "=" not in stripped:
+            continue
+        key, _, value = stripped.partition("=")
+        values[key.strip()] = value.strip()
+    return values
+
+
+def _write_env_var(path: Path, key: str, value: str) -> None:
+    """Set ``key=value`` in the .env file at ``path``, preserving any other
+    lines already there (comments, other vars) and updating in place if
+    ``key`` is already present rather than appending a duplicate."""
+    lines: list[str] = []
+    try:
+        lines = path.read_text(encoding="utf-8").splitlines()
+    except OSError:
+        lines = []
+    for i, line in enumerate(lines):
+        stripped = line.strip()
+        if stripped.startswith(f"{key}=") or stripped.startswith(f"{key} "):
+            lines[i] = f"{key}={value}"
+            break
+    else:
+        lines.append(f"{key}={value}")
+    try:
+        path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+    except OSError:
+        pass
+
+
 # Working directory panes' shells/CLIs are launched in. Defaults to whatever
 # directory the process itself was started from (e.g. the exe's own folder
 # when double-clicked from Explorer, which usually isn't where you want a
-# PowerShell/Copilot session to open) -- set LCARS_START_DIR (e.g. in a
-# desktop shortcut's "Target", or a wrapper script/profile) to override it,
-# so the built exe can always open into the same project directory
-# regardless of how or from where it's launched.
-START_DIR = os.environ.get("LCARS_START_DIR") or None
+# PowerShell/Copilot session to open). Resolution order: the LCARS_START_DIR
+# environment variable (e.g. set in a desktop shortcut's "Target", or a
+# wrapper script/profile), then LCARS_START_DIR in a .env file next to the
+# app (see _env_file_path()), then -- if neither is set -- a startup dialog
+# prompts for it (see LcarsApp._prompt_start_dir) and offers to save the
+# answer to .env for future launches.
+START_DIR = os.environ.get("LCARS_START_DIR") or _read_env_file(_env_file_path()).get("LCARS_START_DIR") or None
 
 
 def _pwsh(label: str, accent: str) -> list[str]:
@@ -232,6 +285,44 @@ class ChangeDirScreen(ModalScreen[str]):
 
     def on_input_submitted(self, event: Input.Submitted) -> None:
         self.dismiss(event.value.strip() or None)
+
+    def on_key(self, event: events.Key) -> None:
+        if event.key == "escape":
+            event.stop()
+            self.dismiss(None)
+
+
+class StartupDirScreen(ModalScreen[tuple[str, bool] | None]):
+    """Modal shown on launch when LCARS_START_DIR isn't set anywhere (not in
+    the environment or .env), asking which directory panes should start in
+    and offering to remember the answer in .env for future launches."""
+
+    def compose(self) -> ComposeResult:
+        with Vertical(id="new-pane-dialog"):
+            yield Static("SET STARTING WORKING DIRECTORY")
+            yield Input(
+                value=os.getcwd(),
+                placeholder=r"e.g. C:\Users\you\projects\thing",
+                id="cwd-input",
+            )
+            yield Checkbox("Remember for future launches (save to .env)", value=True, id="save-cwd")
+            with Horizontal():
+                yield Button("START", id="launch", variant="success")
+                yield Button("SKIP", id="cancel", variant="error")
+
+    def _result(self) -> tuple[str, bool]:
+        value = self.query_one("#cwd-input", Input).value.strip() or os.getcwd()
+        save = self.query_one("#save-cwd", Checkbox).value
+        return value, save
+
+    def on_button_pressed(self, event: Button.Pressed) -> None:
+        if event.button.id == "launch":
+            self.dismiss(self._result())
+        else:
+            self.dismiss(None)
+
+    def on_input_submitted(self, event: Input.Submitted) -> None:
+        self.dismiss(self._result())
 
     def on_key(self, event: events.Key) -> None:
         if event.key == "escape":
@@ -479,6 +570,39 @@ class LcarsApp(App):
         self._apply_sidebar_visibility()
         self.set_interval(WEATHER_REFRESH_SECS, self._fetch_weather)
         self._fetch_weather()
+        if not START_DIR:
+            self._prompt_start_dir()
+
+    def _prompt_start_dir(self) -> None:
+        """Ask for a starting working directory when none was resolved from
+        the environment or .env (see START_DIR above), then restart the
+        already-mounted default panes' terminals in it."""
+
+        def handle_result(result: tuple[str, bool] | None) -> None:
+            if not result:
+                return
+            path, save = result
+            expanded = os.path.expandvars(os.path.expanduser(path))
+            if not os.path.isdir(expanded):
+                self.bell()
+                return
+            self._apply_start_dir(expanded)
+            if save:
+                _write_env_var(_env_file_path(), "LCARS_START_DIR", expanded)
+
+        self.push_screen(StartupDirScreen(), handle_result)
+
+    def _apply_start_dir(self, path: str) -> None:
+        """Set the resolved starting directory and restart every currently
+        mounted pane's terminal in it (mirrors Ctrl+G's per-pane restart);
+        panes created afterwards (AUX, Ctrl+N stations) pick it up too since
+        they read the module-level START_DIR when launched."""
+        global START_DIR
+        START_DIR = path
+        os.environ["LCARS_START_DIR"] = path
+        for pane in self.query_one("#panes", Container).query(TerminalPane):
+            pane.terminal.restart(cwd=path)
+        self._update_cwd_bar()
 
     @work(thread=True, exclusive=True)
     def _fetch_weather(self) -> None:

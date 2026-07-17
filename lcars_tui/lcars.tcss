@@ -161,6 +161,14 @@ NewPaneScreen {
     align: center middle;
 }
 
+ChangeDirScreen {
+    align: center middle;
+}
+
+StartupDirScreen {
+    align: center middle;
+}
+
 #new-pane-dialog {
     width: 60;
     height: auto;
@@ -171,6 +179,10 @@ NewPaneScreen {
 
 #new-pane-dialog Input {
     margin: 1 0;
+}
+
+#new-pane-dialog Checkbox {
+    margin: 0 0 1 0;
 }
 
 #new-pane-dialog Static {
