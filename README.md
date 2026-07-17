@@ -11,6 +11,33 @@ and fully interactive programs work as expected. Only one pane is shown at a
 time (like browser tabs) so each station gets the full screen — the others
 keep running in the background and are instant to switch back to.
 
+## Screenshots
+
+| Copilot tab | PowerShell tab |
+| --- | --- |
+| ![GitHub Copilot CLI running in the COPILOT tab](docs/screenshots/copilot-tab.svg) | ![PowerShell prompt running in the PWSH tab](docs/screenshots/pwsh-tab.svg) |
+
+Both were captured headlessly straight from the app itself (Textual's
+`App.save_screenshot()` under `run_test()`), so they reflect the real
+rendering rather than a mockup. Regenerate them after a visual change with:
+
+```powershell
+$env:LCARS_START_DIR = (Get-Location).Path
+.\.venv\Scripts\python.exe -c "
+import asyncio
+from lcars_tui.app import LcarsApp
+
+async def main():
+    app = LcarsApp()
+    async with app.run_test(size=(120, 40)) as pilot:
+        await pilot.pause()
+        await asyncio.sleep(1.5)
+        app.save_screenshot('docs/screenshots/copilot-tab.svg')
+
+asyncio.run(main())
+"
+```
+
 ## Setup
 
 ```powershell
@@ -72,6 +99,43 @@ python -m venv .venv
   N") show a small `✕` button in their header to stop the process and
   close the tab, falling back to the `COPILOT` tab if it was active. The
   default `COPILOT` / `PWSH` panes cannot be closed.
+
+## Usage examples
+
+A few common workflows, end to end:
+
+**Run a one-off command in a new tab without disturbing COPILOT/PWSH.**
+Press `Ctrl+N`, type the command (e.g. `git log --oneline -20` or `htop`),
+and press Enter/CONTINUE. It opens as its own "STATION N" tab; switch back
+to it any time and close it with the `✕` in its header when you're done.
+
+**Work in a different repo/folder without restarting the app.** Click into
+(or Tab-focus) the pane you want to redirect, press `Ctrl+G`, clear the
+prefilled path and type the new directory, then confirm. That pane's shell
+restarts in the new directory; other panes are untouched. Use the `CD`
+sidebar button if you'd rather click than remember the shortcut.
+
+**Find something you scrolled past.** Focus the pane, press `Ctrl+F`, type
+a search term and press Enter — it jumps to the most recent match and
+highlights it. Press `Ctrl+F` again (same term) to keep walking backwards
+through older matches.
+
+**Copy output from a pane into another program.** Click-drag over the text
+in a pane to select it, then `Ctrl+C`. The selection is written to the
+clipboard via OSC52, so it works even though the pane is a remote-looking
+ConPTY session, not the outer terminal.
+
+**Declutter the sidebar.** Press `Ctrl+B` (or click `CFG`) and uncheck any
+buttons you don't use day-to-day (e.g. `AUX` or `THEME`). Their keybindings
+still work — this only hides the button, and `CFG` itself always stays
+visible so you can bring buttons back later.
+
+**Always start in a specific project folder.** Set `LCARS_START_DIR` (env
+var, `.env` file, or accept the native folder-picker on first launch and
+choose to save it) so every pane — including future `Ctrl+N` stations and
+`AUX` — opens there by default. See
+[Starting panes in a particular directory](#starting-panes-in-a-particular-directory)
+below for the full resolution order.
 
 ## LCARS prompt
 
