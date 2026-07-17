@@ -67,6 +67,7 @@ class TerminalPane(Vertical):
         accent: str = "#ff9c00",
         accent_key: str | None = None,
         cwd: str | None = None,
+        autostart: bool = True,
         name: str | None = None,
         id: str | None = None,  # noqa: A002
         classes: str | None = None,
@@ -76,6 +77,7 @@ class TerminalPane(Vertical):
         self.title_text = title
         self.command = command
         self.accent = accent
+        self.autostart = autostart
         # Semantic theme-palette slot (e.g. "lilac", "orange") this pane's
         # accent color was resolved from, if any -- lets LcarsApp look up
         # the equivalent color in a new theme and re-tint this pane via
@@ -100,7 +102,7 @@ class TerminalPane(Vertical):
                 yield close_btn
         else:
             yield header
-        yield Terminal(self.command, cwd=self.cwd, id=f"{self.id}-term")
+        yield Terminal(self.command, cwd=self.cwd, autostart=self.autostart, id=f"{self.id}-term")
 
     def on_mount(self) -> None:
         self.styles.border = ("round", self.accent)

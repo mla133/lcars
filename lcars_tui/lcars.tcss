@@ -169,6 +169,10 @@ StartupDirScreen {
     align: center middle;
 }
 
+ConfirmStartDirScreen {
+    align: center middle;
+}
+
 #new-pane-dialog {
     width: 60;
     height: auto;
@@ -188,6 +192,12 @@ StartupDirScreen {
 #new-pane-dialog Static {
     color: $lcars-orange;
     text-style: bold;
+}
+
+#confirm-dir-path {
+    color: $lcars-peach;
+    text-style: none;
+    margin: 0 0 1 0;
 }
 
 /* ---- terminal scrollback search modal --------------------------- */

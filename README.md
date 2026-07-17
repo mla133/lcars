@@ -141,9 +141,10 @@ work. The working directory is resolved in this order:
 1. The `LCARS_START_DIR` environment variable, if set.
 2. `LCARS_START_DIR=...` in a `.env` file next to `lcars.exe` (next to the
    repo root when running from source).
-3. If neither is set, a startup dialog prompts for a directory the first
-   time you launch the app, with a checkbox to save your answer to `.env`
-   so you won't be asked again on future launches.
+3. If neither is set, a startup dialog prompts for a directory *before*
+   any pane's shell starts, then asks you to confirm whether to save that
+   directory to `.env` as the default for future launches (choosing not
+   to save just uses it for this run).
 
 Every pane (including new ones from Ctrl+N and the AUX terminal) launches
 its shell in whichever directory is resolved.

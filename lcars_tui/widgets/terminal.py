@@ -184,6 +184,7 @@ class Terminal(Widget, can_focus=True):
         command: str | list[str],
         *,
         cwd: Optional[str] = None,
+        autostart: bool = True,
         name: Optional[str] = None,
         id: Optional[str] = None,  # noqa: A002
         classes: Optional[str] = None,
@@ -191,6 +192,11 @@ class Terminal(Widget, can_focus=True):
         super().__init__(name=name, id=id, classes=classes)
         self.command = command
         self.cwd = cwd
+        # When False, on_mount() won't spawn the child process yet -- used
+        # at app startup while a starting-directory prompt is pending, so
+        # panes don't briefly launch in the wrong directory; the app calls
+        # start() itself once a directory is confirmed.
+        self._autostart = autostart
         self._proc: Optional["PtyProcess"] = None
         # HistoryScreen (rather than plain Screen) transparently keeps every
         # line that scrolls off the top of the visible area in
@@ -218,10 +224,16 @@ class Terminal(Widget, can_focus=True):
         self._search_match_idx: int = -1
 
     # -- lifecycle -----------------------------------------------------
+    @property
+    def is_running(self) -> bool:
+        """True once start() has spawned a child process for this pane."""
+        return self._proc is not None
+
     def on_mount(self) -> None:
         if self._missing_deps:
             return
-        self.start()
+        if self._autostart:
+            self.start()
         self.set_interval(1 / 30, self._drain_queue)
 
     def on_unmount(self) -> None:
